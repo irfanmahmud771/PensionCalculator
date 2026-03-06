@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pension Calculation App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+<button id="installApp" style="
+position:fixed;
+bottom:20px;
+right:20px;
+background:#2563eb;
+color:white;
+border:none;
+padding:12px 18px;
+border-radius:10px;
+font-weight:600;
+cursor:pointer;
+display:none;
+z-index:9999;
+">
+Install App
+</button>
+
+<script>
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("installApp").style.display="block";
+});
+
+document.getElementById("installApp").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+});
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+        body { font-family: 'Inter', sans-serif; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; margin-bottom: 0.25rem; color: #4A5568; font-size: 0.875rem; font-weight: 500; }
+        .input-group input, .input-group select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #CBD5E0; border-radius: 0.375rem; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #4299E1; box-shadow: 0 0 0 1px #4299E1; }
+        .input-group input[readonly] { background-color: #F7FAFC; cursor: not-allowed; font-weight: 600; }
+        .input-group input:disabled, .input-group select:disabled, .pension-stepper button:disabled { background-color: #F7FAFC; color: #A0AEC0; cursor: not-allowed; opacity: 0.7; }
+        .pension-input-wrapper { display: flex; align-items: center; }
+        .pension-input-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; min-width: 50px; }
+        .pension-stepper { display: flex; flex-direction: column; flex-shrink: 0; }
+        .pension-stepper button { width: 2.5rem; height: 1.25rem; display: flex; align-items: center; justify-content: center; background-color: #F1F5F9; border: 1px solid #CBD5E0; color: #4A5568; font-weight: 600; line-height: 1; transition: background-color 0.15s ease-in-out; user-select: none; }
+        .pension-stepper button:hover:not(:disabled) { background-color: #E2E8F0; }
+        .pension-stepper button:first-child { border-top-right-radius: 0.375rem; border-bottom-width: 0.5px; border-left-width: 0; }
+        .pension-stepper button:last-child { border-bottom-right-radius: 0.375rem; border-top-width: 0.5px; border-left-width: 0; }
+        .output-group { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #E2E8F0; }
+        .output-group:last-child { border-bottom: none; }
+        .output-group .label { font-weight: 500; color: #2D3748; }
+        .output-group .value { font-weight: 600; }
+        .card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 1.5rem; }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .flashing { animation: flash 1.5s infinite; }
+        .increase-table-container { overflow-x: auto; max-width: 100%; }
+        .increase-table { width: 100%; min-width: 1000px; border-collapse: collapse; font-size: 0.8rem; }
+        .increase-table th, .increase-table td { padding: 8px 4px; border: 1px solid #000; text-align: center; vertical-align: middle; }
+        .increase-table th { background-color: #F7FAFC; font-weight: 600; color: #2D3748; text-transform: uppercase; }
+        .increase-table .header-group th { padding: 12px 4px; }
+        .increase-table .sub-header th { font-weight: 500; }
+        .hidden-column { display: none; }
+        
+        /* Modal Styles */
+        .modal-overlay { position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); width: 90%; max-width: 400px; transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.visible { display: flex; opacity: 1; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo-left { display: none; }
+            .container { padding: 1rem; }
+            .card { padding: 1rem; }
+            header h1 { font-size: 1.875rem; }
+            header p { font-size: 0.875rem; }
+            .output-group { flex-direction: column; align-items: flex-start; padding: 0.5rem 0; }
+            .output-group .label { margin-bottom: 0.25rem; font-size: 0.875rem; }
+            .output-group .value { font-size: 1rem; padding-left: 0.5rem; }
+        }
+
+        /* Print Styles */
+        #print-area { font-family: 'Arial', sans-serif; color: black; position: relative; overflow: hidden; }
+        #print-area-wrapper { margin-top: 40px; padding: 20px; background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        
+        /* Mobile Compatibility for Payslip Preview */
+        @media screen and (max-width: 768px) {
+            #print-area-wrapper {
+                padding: 10px;
+                margin-top: 20px;
+                overflow-x: auto; /* Enables horizontal scrolling */
+                -webkit-overflow-scrolling: touch;
+            }
+            #print-area {
+                min-width: 750px; /* Ensures layout doesn't break on small screens */
+                padding: 15px;
+            }
+        }
+
+        @media print {
+            @page { margin: 0.5cm; size: A4 portrait; }
+            body { background: white; margin: 0; padding: 0; }
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 20px 40px; display: block !important; border: none; box-shadow: none; min-width: 0; }
+            #print-area-wrapper { border: none; box-shadow: none; margin: 0; padding: 0; position: absolute; top: 0; left: 0; width: 100%; overflow: visible; }
+            .container > .logo-container, .container > header, .container > .grid, .container > .card, #app-warning, #password-modal, #print-preview-header, #dob-verify-modal, #message-modal { display: none !important; }
+        }
+
+        .print-header { text-align: center; margin-bottom: 20px; position: relative; min-height: 130px; z-index: 1; }
+        .print-header h1 { font-size: 20pt; font-weight: bold; margin: 0; line-height: 1.1; text-decoration: none; color: #0000FF; }
+        .print-header h2 { font-size: 16pt; font-weight: bold; margin: 0; line-height: 1.1; text-decoration: none; color: #0000FF; }
+        .print-header h3 { font-size: 14pt; font-weight: bold; margin: 5px 0 0; text-decoration: none; color: #0000FF; }
+
+        /* Print Logos - Increased Size */
+        .print-logo-left { position: absolute; top: 0; left: 0; width: 120px; height: auto; z-index: 1; }
+        .print-logo-right { position: absolute; top: 0; right: 0; width: 120px; height: auto; z-index: 1; }
+
+        /* Watermark */
+        .print-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%; /* Increased size to reach edges */
+            opacity: 0.2; /* Increased visibility */
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Ensure Content is above watermark */
+        .print-info-table, .print-table, .print-section-header, .print-bank-section, .print-footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        .print-info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11pt; border: none; }
+        .print-info-table td { padding: 4px 0; border: none; }
+        .print-info-label { font-weight: bold; width: 130px; display: inline-block; }
+        .print-info-value { border-bottom: 1px dotted #000; display: inline-block; width: calc(100% - 140px); min-height: 1em; }
+
+        .print-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11pt; border: 2px solid #000; }
+        .print-table th, .print-table td { border: 1px solid #000; padding: 2px 8px; /* REDUCED PADDING */ vertical-align: middle; }
+        /* CHANGED: Made table headers transparent */
+        .print-table th { background-color: transparent; font-weight: bold; text-align: center; }
+        .print-table td.amount { text-align: right; }
+        .print-table td.center { text-align: center; }
+        
+        .print-details-container { display: flex; width: 100%; gap: 15px; margin-top: 5px; }
+        .print-details-half { width: 50%; }
+        .print-table.compact { font-size: 9pt; }
+        .print-table.compact th, .print-table.compact td { padding: 2px 4px; }
+
+        .print-section-header { font-weight: bold; text-decoration: none; margin-top: 20px; margin-bottom: 5px; font-size: 12pt; display: block; text-align: center; z-index: 1; }
+        .print-footer { margin-top: 50px; text-align: center; font-style: italic; font-size: 10pt; font-weight: bold; z-index: 1; }
+        
+        .print-bank-section { margin-top: 20px; font-size: 11pt; width: 100%; z-index: 1; }
+        .print-bank-header { font-weight: bold; margin-bottom: 5px; display: block; }
+        .print-bank-row { display: flex; margin-bottom: 5px; }
+        .print-bank-label { font-weight: bold; width: 150px; }
+        .print-bank-value { flex-grow: 1; border-bottom: 1px dotted #000; padding-left: 5px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="app-warning" class="p-4 text-center text-yellow-800 bg-yellow-100 rounded-lg m-4" style="display: none;"></div>
+    <div class="container mx-auto p-4 md:p-8 relative"> 
+        <div class="logo-container flex flex-col md:flex-row justify-between items-center">
+            <img id="main-logo" src="logo.gif" alt="Logo" class="logo-left md:absolute md:top-4 md:left-4 w-32 h-32 object-contain" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/9/97/Pakistan_Air_Force_emblem.png'; this.onerror=null;">
+        </div>
+        
+        <header class="text-center mb-8 mt-4 md:mt-0">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Pension Calculator</h1>
+            <p class="text-red-600 mt-1">(For Retirement date 01 July, 1986 to till now)</p>
+            <p class="text-blue-600 mt-1 font-medium">Designed by Chf Wrt Off Irfan Mahmud Sect Asstt</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Input Section -->
+            <div class="card">
+                <h2 class="card-title text-center font-bold text-xl">Input Details</h2>
+                <form id="pension-form">
+                    <h3 class="font-semibold text-lg mt-4 mb-2 text-gray-600 border-b pb-2">Personal Details</h3>
+                    <div class="grid grid-cols-1 gap-4 mt-2">
+                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="input-group md:col-span-1">
+                                <label for="arms">Arms</label>
+                                <select id="arms" class="calc-input">
+                                    <option value="PAF" selected>PAF</option>
+                                    <option value="Army">Army</option>
+                                    <option value="Navy">Navy</option>
+                                </select>
+                            </div>
+                            <div class="input-group md:col-span-1">
+                                <label for="rank">Rank</label>
+                                <select id="rank" class="calc-input">
+                                    <option value="" disabled selected>Select</option>
+                                    <!-- Dynamic Options based on Arms -->
+                                </select>
+                            </div>
+                             <div class="input-group md:col-span-2">
+                                <label for="name">Name</label>
+                                <input type="text" id="name" class="calc-input" placeholder="Full Name" maxlength="21" style="text-transform: uppercase;">
+                            </div>
+                         </div>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div class="input-group">
+                                <label for="pak-no" id="lbl-pak-no">Pak No</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="pak-no" class="calc-input flex-grow" placeholder="e.g. 123456">
+                                    <button type="button" id="btn-load-data" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm whitespace-nowrap transition-colors">
+                                        Load Data
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="cnic">CNIC</label>
+                                <input type="text" id="cnic" class="calc-input" placeholder="00000-0000000-0" maxlength="15">
+                            </div>
+                         </div>
+                        <div class="input-group">
+                            <label for="account-no">Account No (IBAN)</label>
+                            <input type="text" id="account-no" class="calc-input" placeholder="PK...">
+                        </div>
+                         <div class="input-group">
+                            <label for="bank-branch">Bank & Branch</label>
+                            <input type="text" id="bank-branch" class="calc-input" placeholder="Bank Name, Branch Code">
+                        </div>
+                    </div>
+
+                    <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Service Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div class="input-group">
+                            <label for="dob">Date of Birth (DOB)</label>
+                            <input type="date" id="dob" class="calc-input" disabled>
+                            <div id="dob-display" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="doe">Date of Enrollment (DOE)</label>
+                            <input type="date" id="doe" class="calc-input" disabled>
+                            <div id="doe-display" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="sos">Date of Retirment (SOS)</label>
+                            <input type="date" id="sos" class="calc-input" disabled>
+                            <div id="sos-display" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="gross-pension-ppo">Gross Pension as per PPO</label>
+                            <div class="pension-input-wrapper">
+                                <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
+                                <div class="pension-stepper">
+                                    <button type="button" id="increase-pension" aria-label="Increase pension" disabled>+</button>
+                                    <button type="button" id="decrease-pension" aria-label="Decrease pension" disabled>-</button>
+                                </div>
+                            </div>
+                        </div>
+                         <div class="input-group">
+                            <label for="tk-award">TK Award</label>
+                            <select id="tk-award" class="calc-input" disabled>
+                                <option value="No" selected>No</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                           <label for="family-pension">Family Pension</label>
+                            <select id="family-pension" class="calc-input" disabled>
+                                <option value="No" selected>No</option>
+                                <option value="Yes">Yes</option>
+                            </select>
+                        </div>
+                        <!-- NEW INPUT FIELDS FOR FAMILY PENSIONER -->
+                        <div class="input-group" id="grp-family-name" style="display: none;">
+                            <label for="family-pensioner-name">Family Pensioner Name</label>
+                            <input type="text" id="family-pensioner-name" class="calc-input" placeholder="W/D/S Name" maxlength="21" style="text-transform: uppercase;">
+                        </div>
+                        <div class="input-group" id="grp-family-cnic" style="display: none;">
+                            <label for="family-pensioner-cnic">Family Pensioner CNIC</label>
+                            <input type="text" id="family-pensioner-cnic" class="calc-input" placeholder="00000-0000000-0" maxlength="15">
+                        </div>
+                        <div class="input-group" id="grp-family-relation" style="display: none;">
+                            <label for="family-relation">Relation with Pensioner</label>
+                            <select id="family-relation" class="calc-input">
+                                <option value="Widow" selected>Widow</option>
+                                <option value="Daughter">Daughter</option>
+                                <option value="Son">Son</option>
+                                <option value="Father">Father</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Sister">Sister</option>
+                            </select>
+                        </div>
+                        <!-- NEW: Family DOB Field -->
+                        <div class="input-group" id="grp-family-dob" style="display: none;">
+                            <label for="family-dob">Date of Birth (DOB) Family</label>
+                            <input type="date" id="family-dob" class="calc-input">
+                            <div id="family-dob-display" class="text-xs text-gray-500 mt-1"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title text-center font-bold text-xl py-4">Calculated Results</h2>
+                
+                <div class="text-center mb-4">
+                    <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
+                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
+                        Print Pension Slip
+                    </button>
+                </div>
+
+                <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Service Summary</h3>
+                <div class="mt-4 space-y-2">
+                    <div class="output-group">
+                        <span class="label">Qualifying Service (QS)</span>
+                        <span class="value text-gray-800" id="qs-output">0 Years</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Age on next Birthday after SOS</span>
+                        <span class="value text-gray-800" id="age-at-sos-output">0 Years</span>
+                    </div>
+                     <div class="output-group">
+                        <span class="label">Commutation Purchase Value</span>
+                        <span class="value text-gray-800" id="commutation-factor-output">0</span>
+                    </div>
+                </div>
+                
+                <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Pension Details</h3>
+                 <div class="mt-4 space-y-2">
+                    <div class="output-group">
+                        <span class="label">Gross Pension</span>
+                        <span class="value text-gray-800" id="gross-pension-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Net Pension (Before Increases)</span>
+                        <span class="value text-gray-800" id="net-pension-pre-increase-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Commuted Pension</span>
+                        <span class="value text-gray-800" id="commuted-pension-output">0</span>
+                    </div>
+                     <div class="output-group">
+                        <span class="label">Commutation Amount</span>
+                        <span class="value text-gray-800" id="commutation-amount-output">0</span>
+                    </div>
+                 </div>
+
+                <div>
+                    <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Final Pension After Increases</h3>
+                     <div class="mt-4 space-y-2"> 
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Pension (Current)</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="pension-pm-current-output">0</span>
+                        </div>
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Pension (After Restoration)</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="pension-pm-restored-output">0</span>
+                        </div>
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">TK Allowance</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="tk-allowance-current-output">0</span>
+                        </div>
+
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Total Payable (Current)</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-blue-600 font-bold whitespace-nowrap" id="total-payable-current-output">0</span>
+                        </div>
+
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Total Payable (Restored)</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-green-600 font-bold whitespace-nowrap" id="total-payable-restored-output">0</span>
+                        </div>
+
+                         <div class="output-group pt-4"> 
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Pension Restoration Date</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right whitespace-nowrap" id="restoration-date-output"></span>
+                        </div>
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Age on Pension Restoration</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="age-at-restoration-output">0 Years</span>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-8">
+            <h2 class="card-title text-center font-bold text-xl mb-4">Pension Increase Calculations</h2>
+            <div class="increase-table-container">
+                <table class="increase-table">
+                    <thead>
+                        <tr class="header-group">
+                            <th rowspan="2" class="bg-blue-100 text-blue-600">Increase Year</th>
+                            <th rowspan="2" class="bg-blue-100 text-blue-600">%age</th>
+                            <th colspan="3" class="bg-blue-200 text-blue-700">Current</th>
+                            <th colspan="3" class="bg-green-200 text-green-700">After Restoration</th>
+                            <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">Entitled</th>
+                            <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">From</th>
+                            <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">To</th>
+                            <th colspan="2" class="bg-cyan-200 text-cyan-700 hidden-column">Minimum Pension</th>
+                        </tr>
+                        <tr classs="sub-header">
+                            <th>Base Line</th>
+                            <th>Increase</th>
+                            <th>Net</th>
+                            <th>Base Line</th>
+                            <th>Increase</th>
+                            <th>Net</th>
+                            <th class="hidden-column">Self</th>
+                            <th class="hidden-column">Family</th>
+                        </tr>
+                    </thead>
+                    <tbody id="increase-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mt-4" id="visit-counter-wrapper">
+             <p class="text-left text-sm font-medium text-gray-600">Total Calculation Log: <span id="log-count" class="font-bold text-gray-800">0</span></p>
+             <p class="text-right text-sm font-medium text-gray-600">Total Visits: <span id="visit-count" class="font-bold text-gray-800">0</span></p>
+        </div>
+
+        <div class="card mt-2" id="log-wrapper">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="card-title font-bold text-xl">Calculation Log</h2>
+                <button id="show-log-btn" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-lg transition-colors">
+                    Show Log
+                </button>
+                <button id="clear-log-btn" class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-lg transition-colors">
+                    Clear Log
+                </button>
+            </div>
+            <div id="log-container" class="h-48 overflow-y-auto bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono" style="display: none;">
+                <span class="text-gray-400">Loading log...</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">Enter Password</h3>
+            <div class="input-group">
+                <label for="password-input">Password</label>
+                <input type="password" id="password-input" class="w-full" placeholder="Enter password">
+            </div>
+            <p id="password-error" class="text-red-500 text-sm mb-4" style="display: none;">Incorrect password. Please try again.</p>
+            <div class="flex justify-end gap-3">
+                <button id="cancel-clear-btn" type="button" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button id="confirm-clear-btn" type="button" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOB VERIFICATION MODAL -->
+    <div id="dob-verify-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">Verify Identity</h3>
+            <p class="text-sm text-gray-600 mb-4">Please enter your Date of Birth to load the data.</p>
+            <div class="input-group">
+                <label for="verify-dob-input">Date of Birth</label>
+                <input type="date" id="verify-dob-input" class="w-full">
+            </div>
+            <p id="verify-dob-error" class="text-red-500 text-sm mb-4" style="display: none;">Date of Birth does not match records.</p>
+            <div class="flex justify-end gap-3">
+                <button id="cancel-verify-btn" type="button" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button id="confirm-verify-btn" type="button" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    Verify & Load
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GENERIC MESSAGE MODAL -->
+    <div id="message-modal" class="modal-overlay">
+        <div class="modal-content text-center">
+            <h3 id="msg-modal-title" class="text-lg font-bold mb-2">Message</h3>
+            <p id="msg-modal-body" class="text-gray-700 mb-6"></p>
+            <button id="msg-modal-btn" type="button" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                OK
+            </button>
+        </div>
+    </div>
+    
+    <div class="container mx-auto p-4 md:p-8">
+        <div id="print-area-wrapper">
+            <h2 id="print-preview-header" class="text-center font-bold text-xl mb-6 text-gray-400 uppercase">Pension Slip Preview</h2>
+            <div id="print-area">
+                <img src="logo.gif" alt="Watermark" class="print-watermark" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/9/97/Pakistan_Air_Force_emblem.png'; this.onerror=null;">
+                <div class="print-header">
+                    <img src="logo.gif" alt="PAF Logo" class="print-logo-left" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/9/97/Pakistan_Air_Force_emblem.png'; this.onerror=null;">
+                    <img src="pmad.jpeg" alt="PMAD Logo" class="print-logo-right" onerror="this.style.display='none'">
+                    <h1>Government of Pakistan</h1>
+                    <h2 id="print-service-name">Pakistan Air Force</h2>
+                    <h3>Monthly Pension Statement (<span id="print-month-year"></span>)</h3>
+                </div>
+                
+                <table class="print-info-table">
+                    <!-- NEW ROW FOR FAMILY PENSIONER NAME -->
+                    <tr id="print-row-family-name" style="display: none;">
+                        <td colspan="2" style="padding-bottom: 10px;">
+                             <div style="display: flex; width: 100%; align-items: flex-end;">
+                                 <span style="font-weight: bold; white-space: nowrap; margin-right: 5px;">Family Pensioner Name:</span>
+                                 <span id="print-family-pensioner-name" style="flex-grow: 1; border-bottom: 1px dotted #000; text-align: left; padding-left: 10px; font-weight: normal;"></span>
+                                 <span id="print-family-relation-label" style="font-weight: bold; white-space: nowrap; margin-left: 5px; font-size: 0.9em;"></span>
+                             </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label" style="width: 95px;">Served as:</span>
+                            <span class="print-info-value" id="print-rank" style="width: calc(100% - 105px);"></span>
+                        </td>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label">Name:</span>
+                            <span class="print-info-value" id="print-name"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label" id="print-lbl-pak-no" style="width: 95px;">Pak No:</span>
+                            <span class="print-info-value" id="print-pak-no" style="width: calc(100% - 105px);"></span>
+                        </td>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label">CNIC:</span>
+                            <span class="print-info-value" id="print-cnic"></span>
+                        </td>
+                    </tr>
+                     <tr>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label" style="width: 95px;">Date of Birth:</span>
+                            <span class="print-info-value" id="print-dob" style="width: calc(100% - 105px);"></span>
+                        </td>
+                        <td style="width: 50%; vertical-align: top;">
+                            <span class="print-info-label">Retirement Date:</span>
+                            <span class="print-info-value" id="print-sos"></span>
+                        </td>
+                    </tr>
+                </table>
+
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">S No</th>
+                            <th style="width: 30%;">Pension Payment Details</th>
+                            <th style="width: 15%; text-align: right; white-space: nowrap;">Amount (Rs.)</th>
+                            <th style="width: 45%;">Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="print-table-body">
+                        <tr>
+                            <td class="center serial-cell">1</td>
+                            <td id="print-pension-label">Monthly Pension - Self</td>
+                            <td class="amount" id="print-pension-amount"></td>
+                            <td></td>
+                        </tr>
+                         <tr>
+                            <td class="center serial-cell">2</td>
+                            <td id="print-increase-label">Pension Increase - Self</td>
+                            <td class="amount" id="print-increase-amount"></td>
+                            <td></td>
+                        </tr>
+                         <tr id="print-row-tk">
+                            <td class="center serial-cell">3</td>
+                            <td>TK Allowance</td>
+                            <td class="amount" id="print-tk"></td>
+                            <td></td>
+                        </tr>
+                         <tr style="font-weight: bold;">
+                            <td colspan="2" class="center">Total Pension Transferred</td>
+                            <td class="amount" id="print-total-payable"></td>
+                            <td id="print-remarks-total" style="font-weight: normal; font-size: 9pt; text-align: left; vertical-align: middle;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <span class="print-section-header">Details of Pension Increases</span>
+                <table class="print-table details-table">
+                    <thead>
+                         <tr>
+                            <th style="width: 10%;">S No</th>
+                            <th style="width: 15%;">Year</th>
+                            <th style="width: 15%;">%age</th>
+                            <th style="width: 20%; text-align: right;">Base Line</th>
+                            <th style="width: 20%; text-align: right;">Increase</th>
+                            <th style="width: 20%; text-align: right;">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody id="print-details-table-body">
+                        <!-- Dynamically Populated -->
+                    </tbody>
+                </table>
+
+                <div class="print-bank-section">
+                    <span class="print-bank-header">Bank Details :</span>
+                    <div class="print-bank-row">
+                         <span class="print-bank-label">Account No:</span>
+                         <span class="print-bank-value" id="print-account"></span>
+                    </div>
+                    <div class="print-bank-row">
+                         <span class="print-bank-label">Bank & Branch:</span>
+                         <span class="print-bank-value" id="print-bank"></span>
+                    </div>
+                </div>
+
+                <div class="print-footer">
+                    This is a system generated document and does not require any signatures.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- MODIFIED IMPORT BLOCK ---
+        const { createClient } = window.supabase;
+        
+        const SUPABASE_URL = "https://xyfibnqodbisyykjrrbs.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5ZmlibnFvZGJpc3l5a2pycmJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNTc1NjMsImV4cCI6MjA3ODYzMzU2M30.GodY0oqueaXq15tRYM1Lyaw5regYnPOg6v4aAaBPqgM";
+
+        let supabaseClient;
+        let isSupabaseEnabled = false;
+        let logDebounceTimer = null;
+        const LOG_DEBOUNCE_DELAY = 10000; 
+        let passwordAction = ''; // 'show' or 'clear'
+        let pendingLoadData = null; // Temp storage for verification
+        let grossPensionWarningShown = false; // Flag for warning
+
+        // --- DEFINE CONSTANTS AND HELPERS ---
+
+        let currentCalculatedValues = { 
+            pensionCurrent: 0, 
+            pensionRestored: 0, 
+            restorationDate: 'N/A',
+            tkAllowance: 0 
+        };
+
+        const getTodayDateString = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const todayDateString = getTodayDateString(); 
+
+        const roundToTwoDecimals = (num) => {
+            if (typeof num !== 'number' || isNaN(num)) return 0;
+            const epsilon = 0.0000001; 
+            return Math.round((num + epsilon) * 100) / 100;
+        }
+        
+        const roundToNearestWhole = (num) => {
+            if (typeof num !== 'number' || isNaN(num)) return 0;
+            const rounded = Math.round(num);
+            return rounded;
+        }
+
+        const formatCurrency = (value, roundToWhole = false, forTable = false) => {
+            const numericValue = parseFloat(value);
+            if (isNaN(numericValue) || numericValue === 0) return '-';
+            let roundedValue;
+            let minimumFractionDigits;
+            let maximumFractionDigits;
+            if (roundToWhole) {
+                roundedValue = roundToNearestWhole(numericValue);
+                minimumFractionDigits = 0;
+                maximumFractionDigits = 0;
+            } else {
+                roundedValue = roundToTwoDecimals(numericValue);
+                minimumFractionDigits = 2;
+                maximumFractionDigits = 2;
+            }
+            const prefix = forTable ? '' : 'Rs. ';
+            return prefix + roundedValue.toLocaleString('en-IN', { minimumFractionDigits, maximumFractionDigits });
+        };
+        
+        const parseDate = (dateString) => {
+            if (!dateString) return null;
+            const date = new Date(dateString + 'T00:00:00Z');
+            return isNaN(date.getTime()) ? null : date;
+        };
+
+        const formatDateDisplay = (date) => {
+            if (!date) return 'N/A';
+            const options = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' };
+            return date.toLocaleString('en-GB', options).replace(/ /g, '-').toUpperCase();
+        };
+        
+        const formatDateTable = (dateString) => {
+            const parts = dateString.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                const year = parts[0];
+                const month = parseInt(parts[1]) - 1;
+                const day = parts[2];
+                const dateForDisplay = new Date(Date.UTC(year, month, day));
+                return dateForDisplay.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).replace(/ /g, '-').toUpperCase();
+            }
+            return dateString;
+        };
+        
+        const formatDateForLog = (dateString) => {
+            if (!dateString) return 'N/A';
+            const parts = dateString.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateString;
+        };
+        
+        const formatVisitCount = (num) => {
+            if (!num || num < 1000) {
+                return num || 0;
+            } else if (num < 1000000) {
+                return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
+            } else {
+                return (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + 'M';
+            }
+        };
+
+        const pensionData = [{ age: 20, val_2001: 40.5043, val_1986: 50.6304, val_1966: 24.265 }, { age: 21, val_2001: 39.7341, val_1986: 49.6676, val_1966: 24.061 }, { age: 22, val_2001: 38.9653, val_1986: 48.7066, val_1966: 23.853 }, { age: 23, val_2001: 38.1974, val_1986: 47.7467, val_1966: 23.64 }, { age: 24, val_2001: 37.4307, val_1986: 46.7884, val_1966: 23.424 }, { age: 25, val_2001: 36.6651, val_1986: 45.8314, val_1966: 23.203 }, { age: 26, val_2001: 35.9006, val_1986: 44.8758, val_1966: 22.978 }, { age: 27, val_2001: 35.1372, val_1986: 43.9215, val_1966: 22.747 }, { age: 28, val_2001: 34.375, val_1986: 42.9688, val_1966: 22.513 }, { age: 29, val_2001: 33.6143, val_1986: 42.0179, val_1966: 22.273 }, { age: 30, val_2001: 32.8071, val_1986: 41.0089, val_1966: 22.028 }, { age: 31, val_2001: 32.0974, val_1986: 40.1218, val_1966: 21.077 }, { age: 32, val_2001: 31.3412, val_1986: 39.1767, val_1966: 21.522 }, { age: 33, val_2001: 30.5869, val_1986: 38.2336, val_1966: 21.26 }, { age: 34, val_2001: 29.8343, val_1986: 37.2929, val_1966: 20.993 }, { age: 35, val_2001: 29.0841, val_1986: 36.3551, val_1966: 20.72 }, { age: 36, val_2001: 28.3362, val_1986: 35.4203, val_1966: 20.442 }, { age: 37, val_2001: 27.5908, val_1986: 34.4885, val_1966: 20.157 }, { age: 38, val_2001: 26.8482, val_1986: 33.5603, val_1966: 19.867 }, { age: 39, val_2001: 26.1009, val_1986: 32.6361, val_1966: 19.57 }, { age: 40, val_2001: 25.3728, val_1986: 31.716, val_1966: 19.267 }, { age: 41, val_2001: 24.6406, val_1986: 30.8007, val_1966: 18.956 }, { age: 42, val_2001: 23.9126, val_1986: 29.8907, val_1966: 18.641 }, { age: 43, val_2001: 23.184, val_1986: 28.98, val_1966: 18.318 }, { age: 44, val_2001: 22.4713, val_1986: 28.0891, val_1966: 17.988 }, { age: 45, val_2001: 21.7592, val_1986: 27.199, val_1966: 17.65 }, { age: 46, val_2001: 21.0538, val_1986: 26.3172, val_1966: 17.307 }, { age: 47, val_2001: 20.3555, val_1986: 25.4444, val_1966: 16.956 }, { age: 48, val_2001: 19.6653, val_1986: 24.5816, val_1966: 16.596 }, { age: 49, val_2001: 18.9841, val_1986: 23.7301, val_1966: 16.231 }, { age: 50, val_2001: 18.3129, val_1986: 22.8911, val_1966: 15.859 }, { age: 51, val_2001: 17.6526, val_1986: 22.0658, val_1966: 15.481 }, { age: 52, val_2001: 17.005, val_1986: 21.2563, val_1966: 15.096 }, { age: 53, val_2001: 16.371, val_1986: 20.638, val_1966: 14.707 }, { age: 54, val_2001: 15.7517, val_1986: 19.6896, val_1966: 14.313 }, { age: 55, val_2001: 15.1478, val_1986: 18.9348, val_1966: 13.915 }, { age: 56, val_2001: 14.5602, val_1986: 18.2002, val_1966: 13.513 }, { age: 57, val_2001: 13.9888, val_1986: 17.486, val_1966: 13.109 }, { age: 58, val_2001: 13.434, val_1986: 16.7925, val_1966: 12.702 }, { age: 59, val_2001: 12.8953, val_1986: 16.1191, val_1966: 12.294 }, { age: 60, val_2001: 12.3719, val_1986: 15.4649, val_1966: 11.886 }, { age: 61, val_2001: 11.8632, val_1986: 14.829, val_1966: 11.497 }, { age: 62, val_2001: 11.3684, val_1986: 14.2105, val_1966: 11.104 }, { age: 63, val_2001: 10.8872, val_1986: 13.609, val_1966: 10.713 }, { age: 64, val_2001: 10.4191, val_1986: 13.0239, val_1966: 10.327 }, { age: 65, val_2001: 9.9636, val_1986: 12.4549, val_1966: 9.946 }, { age: 66, val_2001: 9.5214, val_1986: 11.9017, val_1966: 9.57 }, { age: 67, val_2001: 9.0914, val_1986: 11.3643, val_1966: 9.2 }, { age: 68, val_2001: 8.6742, val_1986: 10.5428, val_1966: 8.836 }, { age: 69, val_2001: 8.2697, val_1986: 10.3371, val_1966: 8.478 }, { age: 70, val_2001: 7.8778, val_1986: 9.8472, val_1966: 8.127 }, { age: 71, val_2001: 7.4983, val_1986: 9.3729, val_1966: 7.783 }, { age: 72, val_2001: 7.1314, val_1986: 8.9142, val_1966: 7.448 }, { age: 73, val_2001: 6.7766, val_1986: 8.4708, val_1966: 7.121 }, { age: 74, val_2001: 6.4342, val_1986: 8.0427, val_1966: 6.802 }, { age: 75, val_2001: 6.1039, val_1986: 7.6299, val_1966: 6.494 }, { age: 76, val_2001: 5.7858, val_1986: 7.2322, val_1966: 6.194 }, { age: 77, val_2001: 5.4797, val_1986: 6.8496, val_1966: 5.906 }, { age: 78, val_2001: 5.1854, val_1986: 6.4818, val_1966: 5.627 }, { age: 79, val_2001: 4.903, val_1986: 6.1284, val_1966: 5.364 }, { age: 80, val_2001: 4.6321, val_1986: 5.7901, val_1966: 5.104 } ];
+        const factors_2001_12_01 = {}; const factors_1986_07_01 = {}; const factors_1966_07_01 = {};
+        pensionData.forEach(item => { factors_2001_12_01[item.age] = item.val_2001; factors_1986_07_01[item.age] = item.val_1986; factors_1966_07_01[item.age] = item.val_1966; });
+        const minPensionData = { 1988: { self: 300.00, family: 150.00 }, 1995: { self: 300.00, family: 150.00 }, 1997: { self: 300.00, family: 150.00 }, 1999: { self: 300.00, family: 150.00 }, 2008: { self: 2000.00, family: 1000.00 }, 2010: { self: 3000.00, family: 2250.00 }, 2013: { self: 5000.00, family: 3750.00 }, 2014: { self: 6000.00, family: 4500.00 }, 2018: { self: 10000.00, family: 7500.00 }, 2023: { self: 12000.00, family: 9000.00 } };
+        const pensionIncreases = [ { year: 1987, percentage: '4%', from: '1987-06-30', to: '1987-06-30' }, { year: 1988, percentage: '7%', from: '1988-06-30', to: '1988-06-30' }, { year: 1990, percentage: '5%', from: '1990-06-30', to: '1990-06-30' }, { year: 1991, percentage: 'CONDITIONAL', from: '1991-06-30', to: '1991-06-30' }, { year: 1995, percentage: 'CONDITIONAL', from: '1995-07-01', to: '1995-07-01' }, { year: 1997, percentage: '10%', from: '1997-02-28', to: '1997-02-28' }, { year: 1999, percentage: '25%', from: '1999-07-01', to: '2001-11-30' }, { year: 2001, percentage: 'CONDITIONAL', from: '2001-11-30', to: '2001-11-30' }, { year: 2003, percentage: '15%', from: '2003-07-01', to: '2005-06-30' }, { year: 2004, percentage: 'CONDITIONAL', from: '2004-07-01', to: '2005-06-30' }, { year: 2005, percentage: '10%', from: '2005-07-01', to: '2011-06-30' }, { year: 2006, percentage: 'CONDITIONAL', from: '2006-07-01', to: '2011-06-30' }, { year: 2007, percentage: 'CONDITIONAL', from: '2007-07-01', to: '2007-07-01' }, { year: 2008, percentage: '20%', from: '2008-07-01', to: '2008-07-01' }, { year: 2009, percentage: 'CONDITIONAL', from: '2009-07-01', to: '2011-06-30' }, { year: 2010, percentage: 'CONDITIONAL', from: '2010-07-01', to: '2017-06-30' }, { year: 2011, percentage: 'CONDITIONAL', from: '2011-07-01', to: todayDateString }, { year: 2012, percentage: '20%', from: '2012-07-01', to: '2015-06-30' }, { year: 2013, percentage: '10%', from: '2013-07-01', to: '2016-06-30' }, { year: 2014, percentage: '10%', from: '2014-07-01', to: '2016-06-30' }, { year: 2015, percentage: '7.5%', from: '2012-07-01', to: todayDateString }, { year: 2016, percentage: '10%', from: '2016-07-01', to: '2022-06-30' }, { year: 2017, percentage: '10%', from: '2017-07-01', to: '2022-06-30' }, { year: 2018, percentage: '10%', from: '2018-07-01', to: '2022-06-30' }, { year: 2019, percentage: '10%', from: '2019-07-01', to: '2022-06-30' }, { year: 2021, percentage: '10%', from: '2021-07-01', to: '2022-06-30' }, { year: 2022, percentage: '15%', from: '2022-07-01', to: todayDateString }, { year: 2023, percentage: '17.50%', from: '2023-07-01', to: todayDateString }, { year: 2024, percentage: '15%', from: '2024-07-01', to: todayDateString }, { year: 2025, percentage: '7%', from: '2025-07-01', to: todayDateString } ];
+
+        // --- DEFINE FUNCTIONS ---
+        // Moved calculateAndDisplayAll to higher scope for clarity
+        function calculateAndDisplayAll() {
+            try {
+                const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension');
+                // NEW: Family DOB input
+                const familyDobInput = document.getElementById('family-dob');
+
+                const rankInput = document.getElementById('rank');
+                const currentRank = rankInput.value; 
+                document.getElementById('print-rank').textContent = currentRank;
+                
+                const dobDate = parseDate(dobInput.value); 
+                const doeDate = parseDate(doeInput.value); 
+                const sosDate = parseDate(sosInput.value); 
+                // NEW: Family DOB Date
+                const familyDobDate = parseDate(familyDobInput.value);
+                
+                const tkAward = tkAwardInput.value; 
+                const isFamilyPension = familyPensionInput.value === 'Yes'; 
+                const grossPensionPPO = parseFloat(grossPensionInput.value.replace(/,/g, '')) || 0;
+                
+                // Helper to calculate Age String
+                const getAgeDisplayString = (dateInputValue) => {
+                    if (!dateInputValue) return '';
+                    const parts = dateInputValue.split('-');
+                    const dY = parseInt(parts[0], 10);
+                    const dM = parseInt(parts[1], 10) - 1;
+                    const dD = parseInt(parts[2], 10);
+                    
+                    const now = new Date();
+                    let ageY = now.getFullYear() - dY;
+                    let ageM = now.getMonth() - dM;
+                    let ageD = now.getDate() - dD;
+                    
+                    if (ageD < 0) {
+                        ageM--;
+                    }
+                    if (ageM < 0) {
+                        ageY--;
+                        ageM += 12;
+                    }
+                    return `(Age ${ageY} Y ${ageM} M)`;
+                };
+
+                // --- MODIFICATION 1: Age Display (Pensioner) ---
+                let ageString = getAgeDisplayString(dobInput.value);
+                const dobFormatted = formatDateDisplay(dobDate);
+                const dobDisplayElement = document.getElementById('dob-display');
+                if (dobInput.value) {
+                    dobDisplayElement.innerHTML = `${dobFormatted}<br>${ageString}`;
+                } else {
+                    dobDisplayElement.textContent = dobFormatted; 
+                }
+
+                // --- MODIFICATION 2: Age Display (Family) ---
+                let familyAgeString = getAgeDisplayString(familyDobInput.value);
+                const familyDobFormatted = formatDateDisplay(familyDobDate);
+                const familyDobDisplayElement = document.getElementById('family-dob-display');
+                if (familyDobInput.value) {
+                    familyDobDisplayElement.innerHTML = `${familyDobFormatted}<br>${familyAgeString}`;
+                } else {
+                    familyDobDisplayElement.textContent = '';
+                }
+
+                document.getElementById('doe-display').textContent = formatDateDisplay(doeDate); document.getElementById('sos-display').textContent = formatDateDisplay(sosDate);
+
+                let roundedQS = 0; let ageNextBirthday = 0; let commutationFactor = 0; let restorationDate = null;
+                if (doeDate && sosDate) {
+                    const serviceInMillis = sosDate - doeDate; const serviceInYearsDecimal = serviceInMillis / (1000 * 60 * 60 * 24 * 365.25); roundedQS = Math.round(serviceInYearsDecimal);
+                    if (dobDate) { const sosPlusOneDay = new Date(sosDate); sosPlusOneDay.setUTCDate(sosPlusOneDay.getUTCDate() + 1); const ageAtSOSInYears = (sosPlusOneDay - dobDate) / (1000 * 60 * 60 * 24 * 365.25); ageNextBirthday = Math.ceil(ageAtSOSInYears); }
+                    let factorsToUse = null; const policyDate2001 = parseDate('2001-12-01'); const policyDate1986 = parseDate('1986-07-01');
+                    if (sosDate >= policyDate2001) factorsToUse = factors_2001_12_01; else if (sosDate >= policyDate1986) factorsToUse = factors_1986_07_01; else factorsToUse = factors_1966_07_01;
+                    commutationFactor = factorsToUse[ageNextBirthday] || 0; const roundedCommutationFactor = Math.round(commutationFactor); 
+                    restorationDate = new Date(sosDate); 
+                    // --- MODIFICATION 2: Remove +1 Day ---
+                    // restorationDate.setUTCDate(restorationDate.getUTCDate() + 1);
+                    restorationDate.setUTCFullYear(restorationDate.getUTCFullYear() + roundedCommutationFactor);
+                }
+                
+                // Initialize default values
+                let grossPension = 0;
+                let basePension = 0;
+                let commutedPension = 0;
+                let commutationAmount = 0;
+                let finalPensionCurrent = 0;
+                let finalPensionRestored = 0;
+                let tkAllowance = 0;
+                let totalPayableCurrent = 0;
+                let totalPayableRestored = 0;
+                let netValues = { current: [], restored: [], sumIncreasesCurrent: 0, sumIncreasesRestored: 0, tableData: [] };
+
+                // Only calculate if Gross Pension is > 0
+                if (grossPensionPPO > 0) {
+                     grossPension = grossPensionPPO; 
+                     if (isFamilyPension) { grossPension = roundToTwoDecimals(grossPensionPPO * 0.75); }
+                     
+                     let commutedPensionPercentage = 0;
+                     if (sosDate) { const date2005 = parseDate('2005-06-30'); const date2001 = parseDate('2001-11-30'); if (sosDate > date2005) commutedPensionPercentage = 0.35; else if (sosDate > date2001) commutedPensionPercentage = 0.40; else commutedPensionPercentage = 0.50; }
+                     
+                     commutedPension = roundToTwoDecimals(grossPension * commutedPensionPercentage);
+                     basePension = roundToTwoDecimals(grossPension - commutedPension);
+                     commutationAmount = roundToTwoDecimals(grossPensionPPO * commutedPensionPercentage * commutationFactor * 12);
+
+                     // Pass familyDobDate to populateIncreaseTable
+                     netValues = populateIncreaseTable(sosDate, grossPension, basePension, dobDate, isFamilyPension, familyDobDate);
+                    
+                    // UPDATED LOGIC START
+                    // Pension (Current) formula be the maximum amount in current NET
+                    let maxNetCurrent = basePension;
+                    if (netValues.current && netValues.current.length > 0) {
+                        maxNetCurrent = Math.max(basePension, ...netValues.current);
+                    }
+                    finalPensionCurrent = Math.round(maxNetCurrent); 
+
+                    // Pension (After Restoration) be maximum amount in Restoration NET
+                    let maxNetRestored = grossPension;
+                    if (netValues.restored && netValues.restored.length > 0) {
+                        maxNetRestored = Math.max(grossPension, ...netValues.restored);
+                    }
+                    finalPensionRestored = Math.round(maxNetRestored);
+                    // UPDATED LOGIC END
+
+                    if (tkAward === '1') tkAllowance = 170; else if (tkAward === '2') tkAllowance = 130; else if (tkAward === '3') tkAllowance = 70;
+                    totalPayableCurrent = finalPensionCurrent + tkAllowance; 
+                    totalPayableRestored = finalPensionRestored + tkAllowance;
+                } else {
+                    // Clear table if 0
+                    const tbody = document.getElementById('increase-table-body');
+                    if (tbody) tbody.innerHTML = '';
+                }
+
+                document.getElementById('qs-output').textContent = `${roundedQS} Years`; document.getElementById('age-at-sos-output').textContent = `${ageNextBirthday} Years`; document.getElementById('commutation-factor-output').textContent = commutationFactor.toFixed(4); document.getElementById('gross-pension-output').textContent = formatCurrency(grossPension); document.getElementById('net-pension-pre-increase-output').textContent = formatCurrency(basePension); document.getElementById('commuted-pension-output').textContent = formatCurrency(commutedPension); document.getElementById('commutation-amount-output').textContent = formatCurrency(commutationAmount);
+                document.getElementById('pension-pm-current-output').textContent = formatCurrency(finalPensionCurrent, true); document.getElementById('pension-pm-restored-output').textContent = formatCurrency(finalPensionRestored, true); document.getElementById('tk-allowance-current-output').textContent = formatCurrency(tkAllowance);
+                document.getElementById('total-payable-current-output').textContent = formatCurrency(totalPayableCurrent, true); document.getElementById('total-payable-restored-output').textContent = formatCurrency(totalPayableRestored, true);
+                
+                document.getElementById('print-rank').textContent = document.getElementById('rank').value; document.getElementById('print-name').textContent = document.getElementById('name').value; document.getElementById('print-pak-no').textContent = document.getElementById('pak-no').value; document.getElementById('print-cnic').textContent = document.getElementById('cnic').value; document.getElementById('print-account').textContent = document.getElementById('account-no').value; document.getElementById('print-bank').textContent = document.getElementById('bank-branch').value; 
+                
+                // Update Print Preview DOB
+                let printDobText = formatDateDisplay(dobDate);
+                if (isFamilyPension && familyDobDate) {
+                    printDobText += ` (${formatDateDisplay(familyDobDate)} FDOB)`;
+                }
+                document.getElementById('print-dob').textContent = printDobText;
+
+                document.getElementById('print-sos').textContent = formatDateDisplay(sosDate);
+                const todayForPrint = new Date(); todayForPrint.setMonth(todayForPrint.getMonth() - 1); document.getElementById('print-month-year').textContent = todayForPrint.toLocaleString('default', { month: 'long', year: 'numeric' });
+                const today = parseDate(getTodayDateString()); const isRestored = restorationDate && restorationDate <= today;
+                const pensionLabel = isFamilyPension ? "Monthly Pension - Family" : "Monthly Pension - Self"; document.getElementById('print-pension-label').textContent = pensionLabel;
+                
+                // Print Preview updates - use 0/- if grossPensionPPO <= 0
+                const pensionValue = isRestored ? grossPension : basePension; 
+                document.getElementById('print-pension-amount').textContent = (grossPensionPPO > 0) ? formatCurrency(pensionValue, false, true) : '-';
+                
+                const increaseLabel = isFamilyPension ? "Pension Increase - Family" : "Pension Increase - Self"; document.getElementById('print-increase-label').textContent = increaseLabel;
+                let increaseAmount = isRestored ? netValues.sumIncreasesRestored : netValues.sumIncreasesCurrent; 
+                document.getElementById('print-increase-amount').textContent = (grossPensionPPO > 0) ? formatCurrency(increaseAmount, false, true) : '-';
+                
+                const tkRow = document.getElementById('print-row-tk'); 
+                if (tkAllowance > 0) { 
+                    tkRow.style.display = ''; 
+                    document.getElementById('print-tk').textContent = formatCurrency(tkAllowance, false, true); 
+                } else { 
+                    tkRow.style.display = 'none'; 
+                }
+                
+                const totalPayable = isRestored ? totalPayableRestored : totalPayableCurrent; 
+                document.getElementById('print-total-payable').textContent = (grossPensionPPO > 0) ? formatCurrency(totalPayable, true, true) : '-';
+                
+                const rows = document.querySelectorAll('#print-table-body tr'); let serial = 1; rows.forEach(row => { if (row.style.display !== 'none') { const sNoCell = row.querySelector('td.serial-cell'); if (sNoCell) { sNoCell.textContent = serial++; } } });
+                
+                // HANDLE FAMILY PENSIONER NAME, CNIC & RELATION IN PRINT
+                const familyName = document.getElementById('family-pensioner-name').value;
+                const familyCnic = document.getElementById('family-pensioner-cnic').value;
+                const familyRelation = document.getElementById('family-relation').value;
+                const printRowFamily = document.getElementById('print-row-family-name');
+                
+                if (isFamilyPension) {
+                    printRowFamily.style.display = 'table-row';
+                    let displayText = familyName;
+                    if (familyCnic) {
+                        displayText += ` (CNIC: ${familyCnic})`;
+                    }
+                    document.getElementById('print-family-pensioner-name').textContent = displayText;
+                    // Dynamic Relation
+                    document.getElementById('print-family-relation-label').textContent = `${familyRelation} of below`;
+                } else {
+                    printRowFamily.style.display = 'none';
+                }
+
+                const detailsTableBody = document.getElementById('print-details-table-body');
+                const detailsTable = document.querySelector('.details-table');
+                const detailsHeadRow = detailsTable.querySelector('thead tr');
+
+                // Only populate print table details if grossPensionPPO > 0
+                if (grossPensionPPO > 0 && detailsTableBody && netValues.tableData) {
+                    detailsTableBody.innerHTML = ''; // Clear
+                    
+                    // --- MODIFIED FILTER: Check for entitled='Y' AND percentage not '0%' ---
+                    const entitledData = netValues.tableData.filter(d => d.entitled === 'Y' && d.percentage !== '0%');
+                    const totalRows = entitledData.length;
+
+                    const addCells = (row, dataItem, serial, isRightSide) => {
+                        const cellSerial = row.insertCell(); 
+                        cellSerial.textContent = serial; 
+                        cellSerial.className = 'center';
+                        if (isRightSide) cellSerial.style.borderLeft = "2px solid #000";
+
+                        const cellYear = row.insertCell(); 
+                        cellYear.textContent = dataItem.year; 
+                        cellYear.className = 'center';
+
+                        const cellPerc = row.insertCell(); 
+                        cellPerc.textContent = dataItem.percentage; 
+                        cellPerc.className = 'center';
+
+                        const dataSrc = isRestored ? dataItem.restored : dataItem.current;
+
+                        const cellBase = row.insertCell();
+                        if (dataItem.year >= 2025 && dataSrc.increase > 0) { 
+                             cellBase.textContent = formatCurrency(dataSrc.base, false, true); 
+                        } else { 
+                             cellBase.textContent = '-'; 
+                        }
+                        cellBase.className = 'amount';
+
+                        const cellInc = row.insertCell(); 
+                        cellInc.textContent = dataSrc.increase > 0 ? formatCurrency(dataSrc.increase, false, true) : '-'; 
+                        cellInc.className = 'amount';
+
+                        const cellNet = row.insertCell(); 
+                        cellNet.textContent = dataSrc.net > 0 ? formatCurrency(dataSrc.net, false, true) : '-'; 
+                        cellNet.className = 'amount';
+                        if (dataSrc.isMin) {
+                            cellNet.style.fontWeight = 'bold';
+                        }
+                    };
+
+                    // Threshold Logic for Dual Column
+                    const dualColumnThreshold = isFamilyPension ? 13 : 17;
+
+                    if (totalRows > dualColumnThreshold) {
+                        // Dual Column Layout
+                        detailsTable.style.fontSize = '8pt';
+                        detailsHeadRow.innerHTML = `
+                            <th style="width: 4%; white-space: nowrap;">S No</th>
+                            <th style="width: 6%; white-space: nowrap;">Year</th>
+                            <th style="width: 6%; white-space: nowrap;">%age</th>
+                            <th style="width: 11%; text-align: right; white-space: nowrap;">Base Line</th>
+                            <th style="width: 11%; text-align: right; white-space: nowrap;">Increase</th>
+                            <th style="width: 12%; text-align: right; white-space: nowrap;">Net</th>
+                            <th style="width: 4%; border-left: 2px solid #000; white-space: nowrap;">S No</th>
+                            <th style="width: 6%; white-space: nowrap;">Year</th>
+                            <th style="width: 6%; white-space: nowrap;">%age</th>
+                            <th style="width: 11%; text-align: right; white-space: nowrap;">Base Line</th>
+                            <th style="width: 11%; text-align: right; white-space: nowrap;">Increase</th>
+                            <th style="width: 12%; text-align: right; white-space: nowrap;">Net</th>
+                        `;
+
+                        const midPoint = Math.ceil(totalRows / 2);
+                        for (let i = 0; i < midPoint; i++) {
+                            const row = detailsTableBody.insertRow();
+                            
+                            // Left Column
+                            addCells(row, entitledData[i], i + 1, false);
+
+                            // Right Column
+                            if (i + midPoint < totalRows) {
+                                addCells(row, entitledData[i + midPoint], i + midPoint + 1, true);
+                            } else {
+                                // Fill empty cells
+                                for (let j = 0; j < 6; j++) {
+                                    const cell = row.insertCell();
+                                    cell.innerHTML = '&nbsp;';
+                                    if (j === 0) cell.style.borderLeft = "2px solid #000";
+                                }
+                            }
+                        }
+                    } else {
+                        // Standard Single Column Layout
+                        detailsTable.style.fontSize = '';
+                        detailsHeadRow.innerHTML = `
+                            <th style="width: 10%;">S No</th>
+                            <th style="width: 15%;">Year</th>
+                            <th style="width: 15%;">%age</th>
+                            <th style="width: 20%; text-align: right;">Base Line</th>
+                            <th style="width: 20%; text-align: right;">Increase</th>
+                            <th style="width: 20%; text-align: right;">Net</th>
+                        `;
+                        
+                        entitledData.forEach((dataItem, index) => {
+                            const row = detailsTableBody.insertRow();
+                            addCells(row, dataItem, index + 1, false);
+                        });
+                    }
+                } else if (detailsTableBody) {
+                     detailsTableBody.innerHTML = ''; // Clear print table if 0
+                }
+
+                const restorationOutputSpan = document.getElementById('restoration-date-output'); const restorationDateFormatted = restorationDate ? formatDateDisplay(restorationDate) : 'N/A'; restorationOutputSpan.textContent = restorationDateFormatted;
+                if (restorationDate) { const today2 = parseDate(getTodayDateString()); restorationOutputSpan.className = 'value'; if (restorationDate > today2) { restorationOutputSpan.classList.add('text-red-600', 'font-bold'); } else { restorationOutputSpan.classList.add('text-green-600', 'font-bold', 'flashing'); } } else { restorationOutputSpan.className = 'value text-gray-800'; }
+                let restorationAgeDisplay = 'N/A'; if (dobDate && restorationDate && restorationDate > dobDate) { let totalMonths = (restorationDate.getUTCFullYear() - dobDate.getUTCFullYear()) * 12; totalMonths -= dobDate.getUTCMonth(); totalMonths += restorationDate.getUTCMonth(); if (restorationDate.getUTCDate() < dobDate.getUTCDate()) { totalMonths--; } const restorationAgeYears = Math.floor(totalMonths / 12); const restorationAgeMonths = totalMonths % 12; let yearsString = `${restorationAgeYears} Years`; let monthsString = (restorationAgeMonths === 1) ? `, 1 Month` : (restorationAgeMonths > 1) ? `, ${restorationAgeMonths} Months` : ''; restorationAgeDisplay = yearsString + monthsString; } document.getElementById('age-at-restoration-output').textContent = restorationAgeDisplay;
+                currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.tkAllowance = tkAllowance;
+            } catch (error) { console.error("Error in calculateAndDisplayAll:", error); }
+        }
+
+        // End of calculateAndDisplayAll
+
+        // Now define other functions
+
+        function renderLog(logArray) {
+            const logCountSpan = document.getElementById('log-count');
+            if (logCountSpan) { logCountSpan.textContent = formatVisitCount(logArray.length); }
+            const logContainer = document.getElementById('log-container');
+            if (!logContainer) return;
+            if (logArray.length === 0) { logContainer.innerHTML = '<span class="text-gray-400">Log starts empty...</span>'; return; }
+            let logHTML = '';
+            for (const entry of logArray) {
+                const log_dob_display = formatDateForLog(entry.dob_raw);
+                const log_doe_display = formatDateForLog(entry.doe_raw);
+                const log_sos_display = formatDateForLog(entry.sos_raw);
+                const pensionRaw = entry.pension_raw || '0';
+                const parts = pensionRaw.split('.');
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                let decimalPart = parts[1] ? (parts[1] + '00').substring(0, 2) : '';
+                let log_pension_display = integerPart;
+                if (decimalPart) log_pension_display += '.' + decimalPart;
+                if (parseFloat(pensionRaw) === 0) log_pension_display = '0';
+                if (entry.pension_raw === '') log_pension_display = 'N/A';
+                
+                // Arms/Rank modification
+                const armsDisplay = entry.arms || '-';
+                const rankDisplay = entry.rank || '-';
+
+                // Family/Relation modification
+                let familyLogLine = `<strong>Family:</strong> ${entry.family}`;
+                if (entry.family === 'Yes') {
+                     if (entry.relation_with_pensioner) familyLogLine += `, <strong>Relation:</strong> ${entry.relation_with_pensioner}`;
+                     if (entry.family_pensioner_name) familyLogLine += `, <strong>Name:</strong> ${entry.family_pensioner_name}`;
+                     if (entry.family_pensioner_cnic) familyLogLine += ` (${entry.family_pensioner_cnic})`;
+                }
+
+                logHTML += `<div class="p-2 border-b border-gray-200">
+                    <strong>[${entry.displaytimestamp}] ${entry.triggersource}</strong><br>
+                    <strong>Arms:</strong> ${armsDisplay}, <strong>Rank:</strong> ${rankDisplay}, <strong>Name:</strong> ${entry.name || '-'}, <strong>Pak No:</strong> ${entry.pak_no || '-'}<br>
+                    <strong>DOB:</strong> ${log_dob_display}, <strong>DOE:</strong> ${log_doe_display}, <strong>SOS:</strong> ${log_sos_display}<br>
+                    <strong>Pension:</strong> ${log_pension_display}, <strong>TK:</strong> ${entry.tk}, ${familyLogLine}<br>
+                    <strong class="text-blue-600">Current: Rs. ${Math.round(entry.pension_current || 0).toLocaleString('en-IN')}, Restored: Rs. ${Math.round(entry.pension_restored || 0).toLocaleString('en-IN')}, TK: Rs. ${(entry.tk_allowance || 0).toLocaleString('en-IN')}, Date: ${entry.restoration_date || 'N/A'}</strong><br>
+                    <button class="load-log-btn text-xs bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-2 rounded-lg transition-colors mt-2" 
+                        data-rank="${entry.rank || ''}" 
+                        data-arms="${entry.arms || 'PAF'}"
+                        data-name="${entry.name || ''}" 
+                        data-pak-no="${entry.pak_no || ''}" 
+                        data-cnic="${entry.cnic || ''}" 
+                        data-account-no="${entry.account_no || ''}" 
+                        data-bank-branch="${entry.bank_branch || ''}" 
+                        data-dob="${entry.dob_raw || ''}" 
+                        data-doe="${entry.doe_raw || ''}" 
+                        data-sos="${entry.sos_raw || ''}" 
+                        data-pension="${entry.pension_raw || '0'}" 
+                        data-tk="${entry.tk}" 
+                        data-family="${entry.family}"
+                        data-family-name="${entry.family_pensioner_name || ''}"
+                        data-family-cnic="${entry.family_pensioner_cnic || ''}"
+                        data-family-relation="${entry.relation_with_pensioner || 'Widow'}"
+                        data-family-dob="${entry.family_dob_raw || ''}" 
+                    >Load this Data</button>
+                    <button class="delete-log-btn text-xs bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-2 rounded-lg transition-colors mt-2 ml-2" data-id="${entry.id}">Delete this Log</button>
+                </div>`;
+            }
+            logContainer.innerHTML = logHTML;
+        }
+
+        async function logCalculation(triggerSource) {
+            if (!isSupabaseEnabled) return;
+            const rankInput = document.getElementById('rank');
+            const log_rank = rankInput.value; 
+            const armsInput = document.getElementById('arms'); 
+            const log_arms = armsInput.value;
+
+            const nameInput = document.getElementById('name'); const pakNoInput = document.getElementById('pak-no'); const cnicInput = document.getElementById('cnic'); const accountNoInput = document.getElementById('account-no'); const bankBranchInput = document.getElementById('bank-branch'); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension');
+            
+            // New inputs
+            const familyNameInput = document.getElementById('family-pensioner-name');
+            const familyCnicInput = document.getElementById('family-pensioner-cnic');
+            const familyRelationInput = document.getElementById('family-relation');
+            // NEW: Family DOB Input
+            const familyDobInput = document.getElementById('family-dob');
+
+            const log_name = nameInput.value; const log_pak_no = pakNoInput.value; const log_cnic = cnicInput.value; const log_account_no = accountNoInput.value; const log_bank_branch = bankBranchInput.value; const log_dob_raw = dobInput.value; const log_doe_raw = doeInput.value; const log_sos_raw = sosInput.value; const log_pension_raw = grossPensionInput.value.replace(/,/g, '') || '0'; const log_tk = tkAwardInput.value; const log_family = familyPensionInput.value;
+            
+            const log_family_name = familyNameInput.value;
+            const log_family_cnic = familyCnicInput.value;
+            const log_family_relation = familyRelationInput.value;
+            const log_family_dob_raw = familyDobInput.value; // Store family dob
+
+            const now = new Date(); const day = String(now.getDate()).padStart(2, '0'); const month = String(now.getMonth() + 1).padStart(2, '0'); const year = now.getFullYear(); const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            const logEntry = { 
+                displaytimestamp: `${day}-${month}-${year} ${time}`, 
+                triggersource: triggerSource, 
+                rank: log_rank, 
+                arms: log_arms, // Enabled
+                name: log_name, 
+                pak_no: log_pak_no, 
+                cnic: log_cnic, 
+                account_no: log_account_no, 
+                bank_branch: log_bank_branch, 
+                dob_raw: log_dob_raw, 
+                doe_raw: log_doe_raw, 
+                sos_raw: log_sos_raw, 
+                pension_raw: log_pension_raw, 
+                tk: log_tk, 
+                family: log_family, 
+                family_pensioner_name: log_family_name, // Enabled
+                family_pensioner_cnic: log_family_cnic, // Enabled
+                relation_with_pensioner: log_family_relation, // Enabled
+                family_dob_raw: log_family_dob_raw, // Enabled New
+                pension_current: currentCalculatedValues.pensionCurrent, 
+                pension_restored: currentCalculatedValues.pensionRestored, 
+                restoration_date: currentCalculatedValues.restorationDate, 
+                tk_allowance: currentCalculatedValues.tkAllowance 
+            };
+
+            try {
+                // Modified Logic: If Pak No is entered, delete ALL previous logs with this Pak No.
+                if (log_pak_no && log_pak_no.trim() !== "") {
+                    const { error: deletePakNoError } = await supabaseClient.from('logs').delete().eq('pak_no', log_pak_no);
+                    if (deletePakNoError) console.warn("Error clearing old logs for Pak No:", deletePakNoError);
+                } else {
+                     // Fallback to strict duplicate check if Pak No is empty (though unlikely)
+                    const { error: deleteError } = await supabaseClient.from('logs').delete().match({ 
+                        rank: log_rank, 
+                        name: log_name, 
+                        // We check core identifiers for dupe
+                        pak_no: log_pak_no, 
+                        cnic: log_cnic, 
+                        pension_raw: log_pension_raw, 
+                        pension_current: currentCalculatedValues.pensionCurrent 
+                    });
+                    if (deleteError) { console.warn("Error checking/deleting duplicate log:", deleteError); }
+                }
+
+                const { error: insertError } = await supabaseClient.from('logs').insert(logEntry);
+                if (insertError) { throw insertError; }
+                console.log("Log entry saved (or refreshed):", logEntry);
+            } catch (e) { console.error("Error adding document: ", e); }
+        }
+        
+        async function deleteLogEntry(id) {
+            if (!isSupabaseEnabled) return;
+            try {
+                const { error } = await supabaseClient.from('logs').delete().eq('id', id);
+                if (error) throw error;
+                // fetchLogs will be triggered by real-time listener, but we can call it manually to be safe
+                fetchLogs(); 
+            } catch (e) {
+                console.error("Error deleting log:", e);
+                alert("Failed to delete log entry.");
+            }
+        }
+
+        function openPasswordModal() { const passwordModal = document.getElementById('password-modal'); const passwordInput = document.getElementById('password-input'); const passwordError = document.getElementById('password-error'); passwordInput.value = ''; passwordError.style.display = 'none'; passwordModal.classList.add('visible'); passwordInput.focus(); }
+        function closePasswordModal() { const passwordModal = document.getElementById('password-modal'); passwordModal.classList.remove('visible'); }
+        
+        async function handlePasswordSubmit() {
+            if (!isSupabaseEnabled) return;
+            const passwordInput = document.getElementById('password-input'); 
+            const passwordError = document.getElementById('password-error'); 
+            const password = passwordInput.value;
+            
+            // Use Supabase function to verify password securely
+            try {
+                const { data, error } = await supabaseClient.rpc('verify_admin_password', { input_pass: password });
+                if (error) throw error;
+
+                if (data === true) {
+                    // Correct Password
+                    passwordError.style.display = 'none';
+                    if (passwordAction === 'show') {
+                        document.getElementById('log-container').style.display = 'block';
+                        closePasswordModal();
+                    } else if (passwordAction === 'clear') {
+                        const { error: clearError } = await supabaseClient.from('logs').delete().neq('id', 0);
+                        if (clearError) throw clearError;
+                        closePasswordModal();
+                    }
+                } else {
+                     // Incorrect Password
+                    passwordError.textContent = "Incorrect password. Please try again."; 
+                    passwordError.style.display = 'block'; 
+                }
+            } catch (e) {
+                 console.error("Error verifying password or executing action:", e);
+                 passwordError.textContent = "System error. Please try again later.";
+                 passwordError.style.display = 'block';
+            }
+        }
+
+        function loadLogData(button) {
+            const data = button.dataset;
+            const rankInput = document.getElementById('rank'); 
+            const savedRank = data.rank || '';
+            const armsInput = document.getElementById('arms'); // New
+            
+            // Set Arms first to populate correct ranks
+            if (data.arms) {
+                armsInput.value = data.arms;
+                updateArmsUI(); // Trigger UI update, populates ranks
+            } else {
+                armsInput.value = 'PAF';
+                updateArmsUI();
+            }
+
+            // Now set Rank - Logic moved here so options exist
+            let optionFound = false; 
+            for (let i = 0; i < rankInput.options.length; i++) { 
+                if (rankInput.options[i].value === savedRank) { 
+                    rankInput.selectedIndex = i; 
+                    optionFound = true; 
+                    break; 
+                } 
+            }
+            if (!optionFound) { 
+                // Try strictly setting value if loop fails (sometimes safer)
+                rankInput.value = savedRank;
+                if (rankInput.selectedIndex === -1) rankInput.selectedIndex = 0; 
+            }
+
+            document.getElementById('name').value = data.name || ''; document.getElementById('pak-no').value = data.pakNo || ''; document.getElementById('cnic').value = data.cnic || ''; document.getElementById('account-no').value = data.accountNo || ''; document.getElementById('bank-branch').value = data.bankBranch || ''; document.getElementById('dob').value = data.dob || ''; document.getElementById('doe').value = data.doe || ''; document.getElementById('sos').value = data.sos || '';
+            const pensionValue = data.pension || ''; const grossPensionInput = document.getElementById('gross-pension-ppo'); grossPensionInput.value = pensionValue;
+            const parts = pensionValue.split('.'); let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); let decimalPart = parts[1] ? (parts[1] + '00').substring(0, 2) : ''; grossPensionInput.value = integerPart; if (decimalPart) { grossPensionInput.value += '.' + decimalPart; } if (parseFloat(pensionValue) === 0) { grossPensionInput.value = '0'; }
+            document.getElementById('tk-award').value = data.tk || 'No'; document.getElementById('family-pension').value = data.family || 'No';
+            
+            // Set Family Fields
+            document.getElementById('family-pensioner-name').value = data.familyName || '';
+            document.getElementById('family-pensioner-cnic').value = data.familyCnic || '';
+            document.getElementById('family-relation').value = data.familyRelation || 'Widow';
+            document.getElementById('family-dob').value = data.familyDob || ''; // New field
+
+            checkInputEnabling(); calculateAndDisplayAll();
+            
+            // Explicitly enable DOB since data is loaded (view/edit mode)
+            document.getElementById('dob').disabled = false;
+
+            if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); if (document.getElementById('dob').value && document.getElementById('doe').value && document.getElementById('sos').value && grossPensionInput.value) { logDebounceTimer = setTimeout(() => { logCalculation('Load Log Data (Debounced)'); }, LOG_DEBOUNCE_DELAY); } }
+        }
+
+        let pressTimer; let intervalTimer; const initialDelay = 500; const repeatDelay = 100;
+        function startPress(amount) { stopPress(); adjustPension(amount); pressTimer = setTimeout(() => { intervalTimer = setInterval(() => { adjustPension(amount); }, repeatDelay); }, initialDelay); }
+        function stopPress() { clearTimeout(pressTimer); clearInterval(intervalTimer); }
+        function adjustPension(amount) { const grossPensionInput = document.getElementById('gross-pension-ppo'); const currentValue = parseFloat(grossPensionInput.value.replace(/,/g, '')) || 0; const newValue = Math.max(0, currentValue + amount); let newValueString = String(roundToTwoDecimals(newValue)); const parts = newValueString.split('.'); let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); grossPensionInput.value = parts.length > 1 ? integerPart + '.' + parts[1] : integerPart; grossPensionInput.dispatchEvent(new Event('input', { bubbles: true })); }
+        function formatGrossPensionInput(event) { let input = event.target.value.replace(/[^0-9.]/g, ''); const parts = input.split('.'); if (parts.length > 2) { input = parts[0] + '.' + parts.slice(1).join(''); } if (parts.length === 2) { parts[1] = parts[1].substring(0, 2); input = parts.join('.'); } let integerPart = parts[0].replace(/,/g, ''); integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ","); event.target.value = parts.length > 1 ? integerPart + '.' + parts[1] : integerPart; calculateAndDisplayAll(); if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); if (dobInput.value && doeInput.value && sosInput.value && event.target.value) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }
+
+        // Updated populateIncreaseTable to accept isFamilyPension and familyDobDate
+        function populateIncreaseTable(sosDate, grossPension, basePension, dobDate, isFamilyPension, familyDobDate) {
+             const tbody = document.getElementById('increase-table-body'); tbody.innerHTML = '';
+             const date1977_04_30 = parseDate('1977-04-30'); const date1977_05_01 = parseDate('1977-05-01'); const date1947_08_14 = parseDate('1947-08-14'); const date1991_06_01 = parseDate('1991-06-01'); const date1993_06_01 = parseDate('1993-06-01'); const date1993_06_30 = parseDate('1993-06-30'); const date2001_12_01 = parseDate('2001-12-01'); const date1991_05_31 = parseDate('1991-05-31'); const date1993_07_01 = parseDate('1993-07-01'); const date1994_06_30 = parseDate('1994-06-30'); const date1994_07_01 = parseDate('1994-07-01'); const date1977_04_30_2006 = parseDate('1977-04-30'); const date1977_05_01_2006 = parseDate('1977-05-01'); const date1997_06_30_2007 = parseDate('1997-06-30'); const date2007_07_01_2007 = parseDate('2007-07-01'); const date1997_07_01_2007 = parseDate('1997-07-01'); const date2001_06_30_2009 = parseDate('2001-06-30'); const date2001_07_01_2009 = parseDate('2001-07-01'); const date2001_11_30_2010 = parseDate('2001-11-30'); const date2001_07_01_2010 = parseDate('2001-07-01'); const date2002_06_30_2011 = parseDate('2002-06-30'); 
+             const date2024_12_31 = parseDate('2024-12-31');
+
+            let previousNetValueCurrent = basePension; let previousNetValueRestored = grossPension; 
+            const currentNetValues = []; const restoredNetValues = [];
+            let net2024_Current = 0; let net2024_Restored = 0;
+            let totalAccumulatedIncreaseCurrent = 0; let totalAccumulatedIncreaseRestored = 0;
+            const detailedData = [];
+
+            pensionIncreases.forEach(item => {
+                const row = tbody.insertRow(); const fromDate = parseDate(item.from); const toDate = parseDate(item.to);
+                const net2024 = previousNetValueCurrent; 
+                
+                let isEntitled = 'N'; let percentageToDisplay = item.percentage; const year = item.year;
+                
+                 if (sosDate) {
+                    if (year === 1991) { if (sosDate > date1977_04_30) percentageToDisplay = '12%'; else if (sosDate < date1977_05_01) percentageToDisplay = '32%'; else percentageToDisplay = '0%'; } 
+                    else if (year === 1995) { if (sosDate > date1947_08_14 && sosDate < date1977_04_30) percentageToDisplay = '15%'; else if (sosDate > date1977_05_01 && sosDate < date1991_06_01) percentageToDisplay = '10%'; else if (sosDate < date1993_06_01) percentageToDisplay = '5%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2001) { if (sosDate > date1993_06_30 && sosDate < date2001_12_01) percentageToDisplay = '5%'; else if (sosDate > date1991_05_31 && sosDate < date1993_07_01) percentageToDisplay = '10%'; else if (sosDate < date1991_06_01) percentageToDisplay = '15%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2004) { if (sosDate > date1994_06_30) percentageToDisplay = '8%'; else if (sosDate < date1994_07_01) percentageToDisplay = '16%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2006) { if (sosDate > date1977_04_30_2006) percentageToDisplay = '15%'; else if (sosDate < date1977_05_01_2006) percentageToDisplay = '20%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2007) { if (sosDate > date1997_06_30_2007 && sosDate < date2007_07_01_2007) percentageToDisplay = '15%'; else if (sosDate < date1997_07_01_2007) percentageToDisplay = '20%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2009) { if (sosDate > date2001_06_30_2009) percentageToDisplay = '15%'; else if (sosDate < date2001_07_01_2009) percentageToDisplay = '20%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2010) { if (sosDate > date2001_11_30_2010) percentageToDisplay = '15%'; else if (sosDate < date2001_07_01_2010) percentageToDisplay = '20%'; else percentageToDisplay = '0%'; }
+                    else if (year === 2011) { if (sosDate > date2002_06_30_2011) percentageToDisplay = '15%'; else if (sosDate < date2002_06_30_2011) percentageToDisplay = '20%'; else percentageToDisplay = '0%'; }
+                } else if (item.percentage === 'CONDITIONAL') { percentageToDisplay = '-'; }
+
+                if (sosDate && fromDate && toDate) { const condition1 = (sosDate >= fromDate && sosDate <= toDate); const condition2 = (fromDate >= sosDate); if (condition1 || condition2) isEntitled = 'Y'; }
+                if (isEntitled === 'N') { row.classList.add('hidden'); }
+
+                let currentBaseLine = previousNetValueCurrent; let currentIncreaseValue = 0; let currentNetValue = currentBaseLine; let baseLineDisplayCurrent = '-';
+                let restoredBaseLine = previousNetValueRestored; let restoredIncreaseValue = 0; let restoredNetValue = restoredBaseLine; let baseLineDisplayRestored = '-';
+                
+                // --- Insert the age logic right BEFORE we start parsing percentages ---
+                // Determine which date to use for calculation
+                const targetDobForIncrease = (isFamilyPension && familyDobDate) ? familyDobDate : dobDate;
+
+                if (year === 2016 && targetDobForIncrease) {
+                     const todayDate = new Date();
+                     let currentAge = todayDate.getFullYear() - targetDobForIncrease.getFullYear();
+                     const m = todayDate.getMonth() - targetDobForIncrease.getMonth();
+                     if (m < 0 || (m === 0 && todayDate.getDate() < targetDobForIncrease.getDate())) {
+                         currentAge--;
+                     }
+                     if (currentAge >= 85) {
+                         percentageToDisplay = '25%';
+                     }
+                }
+                
+                const percentageText = percentageToDisplay.replace('%', ''); const percentageValue = parseFloat(percentageText) / 100;
+                let isIncreaseCalculatedCurrent = false; let isNetCalculatedCurrent = false; let isIncreaseCalculatedRestored = false; let isNetCalculatedRestored = false;
+                const minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0; const minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0; const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
+                let minPensionAppliedCurrent = false; let minPensionAppliedRestored = false;
+
+                if (year === 1987) { 
+                    restoredBaseLine = grossPension;
+                    if (isEntitled === 'Y' && !isNaN(percentageValue) && grossPension > 0) { restoredIncreaseValue = roundToTwoDecimals(percentageValue * grossPension); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    currentIncreaseValue = restoredIncreaseValue; isIncreaseCalculatedCurrent = isIncreaseCalculatedRestored;
+                    if (currentIncreaseValue > 0) { currentNetValue = roundToTwoDecimals(currentIncreaseValue + grossPension - basePension); } else { currentNetValue = roundToTwoDecimals(basePension); } isNetCalculatedCurrent = true;
+                } else if (year === 1988) {
+                    restoredBaseLine = previousNetValueRestored; 
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { const baseForIncrease = Math.max(restoredBaseLine, applicableMinPension); restoredIncreaseValue = roundToTwoDecimals(baseForIncrease * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    currentIncreaseValue = restoredIncreaseValue; isIncreaseCalculatedCurrent = isIncreaseCalculatedRestored;
+                    currentNetValue = roundToTwoDecimals(previousNetValueCurrent + currentIncreaseValue); isNetCalculatedCurrent = true;
+                } else if (year === 1990) {
+                    restoredBaseLine = previousNetValueRestored;
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { const baseForIncrease = Math.max(restoredBaseLine, applicableMinPension); restoredIncreaseValue = roundToTwoDecimals(baseForIncrease * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    currentIncreaseValue = restoredIncreaseValue; isIncreaseCalculatedCurrent = isIncreaseCalculatedRestored;
+                    if (currentIncreaseValue > 0) { currentNetValue = roundToTwoDecimals(currentIncreaseValue + grossPension - basePension); } else { currentNetValue = roundToTwoDecimals(basePension); } isNetCalculatedCurrent = true;
+                } else if (year >= 1991 && year <= 1999) {
+                    restoredBaseLine = previousNetValueRestored;
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { const baseForIncrease = Math.max(restoredBaseLine, applicableMinPension); restoredIncreaseValue = roundToTwoDecimals(baseForIncrease * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    currentIncreaseValue = restoredIncreaseValue; isIncreaseCalculatedCurrent = isIncreaseCalculatedRestored;
+                    currentNetValue = roundToTwoDecimals(previousNetValueCurrent + currentIncreaseValue); isNetCalculatedCurrent = true;
+                } else if (year >= 2001 && year <= 2024) {
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { currentIncreaseValue = roundToTwoDecimals(percentageValue * previousNetValueCurrent); isIncreaseCalculatedCurrent = true; } else { currentIncreaseValue = 0; }
+                    currentNetValue = roundToTwoDecimals(previousNetValueCurrent + currentIncreaseValue); isNetCalculatedCurrent = true;
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { restoredIncreaseValue = roundToTwoDecimals(restoredBaseLine * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                } else if (year === 2025) {
+                    currentBaseLine = net2024;
+                    baseLineDisplayCurrent = formatCurrency(currentBaseLine, false, true);
+                    
+                    if (isEntitled === 'Y' && percentageValue > 0) {
+                        currentIncreaseValue = roundToTwoDecimals(percentageValue * currentBaseLine);
+                        isIncreaseCalculatedCurrent = true;
+                    } else { 
+                        currentIncreaseValue = 0; 
+                    }
+                    
+                    currentNetValue = roundToTwoDecimals(currentBaseLine + currentIncreaseValue); isNetCalculatedCurrent = true;
+                    
+                    restoredBaseLine = previousNetValueRestored;
+                    if (isEntitled === 'Y' && !isNaN(percentageValue)) { 
+                        const restoredIncreaseRaw = restoredBaseLine * percentageValue; 
+                        restoredIncreaseValue = roundToTwoDecimals(restoredIncreaseRaw); 
+                        isIncreaseCalculatedRestored = true; 
+                    } else { 
+                        restoredIncreaseValue = 0; 
+                    }
+                    
+                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    baseLineDisplayRestored = formatCurrency(restoredBaseLine, false, true);
+                }
+
+                if (year > 1999) {
+                    if (isEntitled === 'Y' && isNetCalculatedCurrent && applicableMinPension > 0 && currentNetValue < applicableMinPension) { 
+                        const diff = applicableMinPension - previousNetValueCurrent;
+                        if (diff > 0) {
+                             currentIncreaseValue = diff;
+                        }
+                        currentNetValue = applicableMinPension; 
+                        minPensionAppliedCurrent = true; 
+                    }
+                    
+                    if (isEntitled === 'Y' && isNetCalculatedRestored && applicableMinPension > 0 && restoredNetValue < applicableMinPension) { 
+                        const diffRestored = applicableMinPension - previousNetValueRestored;
+                        if (diffRestored > 0) {
+                             restoredIncreaseValue = diffRestored;
+                        }
+                        restoredNetValue = applicableMinPension; 
+                        minPensionAppliedRestored = true; 
+                    }
+                }
+                
+                if (isNetCalculatedCurrent) previousNetValueCurrent = currentNetValue;
+                if (isNetCalculatedRestored) previousNetValueRestored = restoredNetValue;
+                if (isNetCalculatedCurrent) currentNetValues.push(currentNetValue);
+                if (isNetCalculatedRestored) restoredNetValues.push(restoredNetValue);
+
+                if (isEntitled === 'Y') {
+                    totalAccumulatedIncreaseCurrent += currentIncreaseValue;
+                    totalAccumulatedIncreaseRestored += restoredIncreaseValue;
+                }
+                
+                detailedData.push({ year: year, percentage: percentageToDisplay, entitled: isEntitled, current: { base: currentBaseLine, increase: currentIncreaseValue, net: currentNetValue, isMin: minPensionAppliedCurrent }, restored: { base: restoredBaseLine, increase: restoredIncreaseValue, net: restoredNetValue, isMin: minPensionAppliedRestored } });
+
+                row.insertCell().textContent = year; row.insertCell().textContent = percentageToDisplay; row.insertCell().textContent = year === 2025 ? baseLineDisplayCurrent : '-'; 
+                row.insertCell().textContent = isIncreaseCalculatedCurrent ? formatCurrency(currentIncreaseValue, false, true) : '-';
+                const netCellCurrent = row.insertCell(); netCellCurrent.textContent = isNetCalculatedCurrent ? formatCurrency(currentNetValue, false, true) : '-'; if (minPensionAppliedCurrent) netCellCurrent.classList.add('text-blue-600', 'font-bold');
+                row.insertCell().textContent = year === 2025 ? baseLineDisplayRestored : '-';
+                row.insertCell().textContent = isIncreaseCalculatedRestored ? formatCurrency(restoredIncreaseValue, false, true) : '-';
+                const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
+                row.insertCell().textContent = isEntitled;
+                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.cells[11].classList.add('hidden-column'); row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; row.cells[12].classList.add('hidden-column');
+            
+                // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
+                if (isEntitled === 'N' || percentageToDisplay === '0%') { 
+                    row.classList.add('hidden'); 
+                }
+            });
+            
+            return { current: currentNetValues, restored: restoredNetValues, sumIncreasesCurrent: totalAccumulatedIncreaseCurrent, sumIncreasesRestored: totalAccumulatedIncreaseRestored, tableData: detailedData };
+        }
+
+        function checkInputEnabling() {
+            const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension');
+            const dobFilled = dobInput.value !== ''; const doeFilled = doeInput.value !== ''; const sosFilled = sosInput.value !== ''; const grossPensionFilled = grossPensionInput.value !== '' && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0;
+            doeInput.disabled = !dobFilled; sosInput.disabled = !(dobFilled && doeFilled); grossPensionInput.disabled = !(dobFilled && doeFilled && sosFilled); increasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); decreasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); tkAwardInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled); familyPensionInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled);
+            if (doeInput.disabled) { doeInput.value = ''; document.getElementById('doe-display').textContent = ''; } if (sosInput.disabled) { sosInput.value = ''; document.getElementById('sos-display').textContent = ''; } if (grossPensionInput.disabled) grossPensionInput.value = ''; if (tkAwardInput.disabled) tkAwardInput.value = 'No'; if (familyPensionInput.disabled) familyPensionInput.value = 'No';
+            
+            // New Logic for Family Pensioner Name visibility in Input Form
+            const familyPensionVal = familyPensionInput.value;
+            const grpFamilyName = document.getElementById('grp-family-name');
+            const grpFamilyCnic = document.getElementById('grp-family-cnic');
+            const grpFamilyRelation = document.getElementById('grp-family-relation');
+            
+            // --- FIXED: ADDED MISSING REFERENCE AND LOGIC ---
+            const grpFamilyDob = document.getElementById('grp-family-dob');
+
+            if (familyPensionVal === 'Yes') {
+                grpFamilyName.style.display = 'block';
+                grpFamilyCnic.style.display = 'block';
+                grpFamilyRelation.style.display = 'block';
+                if (grpFamilyDob) grpFamilyDob.style.display = 'block'; // SHOW DOB
+            } else {
+                grpFamilyName.style.display = 'none';
+                grpFamilyCnic.style.display = 'none';
+                grpFamilyRelation.style.display = 'none';
+                if (grpFamilyDob) grpFamilyDob.style.display = 'none'; // HIDE DOB
+                
+                document.getElementById('family-pensioner-name').value = ''; 
+                document.getElementById('family-pensioner-cnic').value = '';
+                document.getElementById('family-relation').selectedIndex = 0;
+                
+                // Clear family DOB input
+                const famDob = document.getElementById('family-dob');
+                if (famDob) famDob.value = '';
+                const famDobDisp = document.getElementById('family-dob-display');
+                if (famDobDisp) famDobDisp.textContent = '';
+            }
+        }
+
+        // --- NEW: Update Ranks based on Arms ---
+        function updateRanks() {
+            const armsSelect = document.getElementById('arms');
+            const rankSelect = document.getElementById('rank');
+            const selectedArm = armsSelect.value;
+            
+            // Save current selection if possible, though often it's best to reset or smart-map
+            // For simplicity, we'll reset or keep index 0 unless same value exists
+            const currentRank = rankSelect.value;
+
+            // Clear existing options
+            rankSelect.innerHTML = '<option value="" disabled selected>Select</option>';
+
+            let ranks = [];
+            if (selectedArm === 'Army') {
+                // Low to High as requested (Start with Sep)
+                ranks = ['Sep', 'L/NK', 'NK', 'Hav', 'Nb Sub', 'Sub', 'Sub Maj', 'Lt (Hon)', 'Capt (Hon)'];
+            } else if (selectedArm === 'Navy') {
+                // Low to High as requested (Start with Seaman)
+                ranks = ['Seaman', 'Able Seaman', 'Ledg Seaman', 'PO', 'CPO', 'FCPO', 'MCPO', 'Sub Lt (Hon)', 'Lt (Hon)'];
+            } else {
+                // PAF - Low to High as requested (Start with SAC)
+                ranks = ['SAC', 'Jnr Tech', 'Cpl Tech', 'Snr Tech', 'Chf Tech', 'Asstt Wrt Off', 'Wrt Off', 'Chf Wrt Off', 'Flg Off (Hon)', 'Flt Lt (Hon)'];
+            }
+
+            ranks.forEach(rank => {
+                const option = document.createElement('option');
+                option.value = rank;
+                option.textContent = rank;
+                rankSelect.appendChild(option);
+            });
+            
+            if (ranks.includes(currentRank)) {
+                rankSelect.value = currentRank;
+            }
+        }
+
+        async function initVisitCounter() { if (!isSupabaseEnabled) return; const visitCountSpan = document.getElementById('visit-count'); if (!visitCountSpan) return; try { const { data: rpcData, error: rpcError } = await supabaseClient.rpc('increment_visits'); if (rpcError) throw rpcError; if (rpcData) { visitCountSpan.textContent = formatVisitCount(rpcData); } supabaseClient.channel('visits-channel').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'visits', filter: 'id=eq.1' }, (payload) => { visitCountSpan.textContent = formatVisitCount(payload.new.count); }).subscribe(); } catch (e) { console.error("Failed to update visit count:", e); try { const { data, error } = await supabaseClient.from('visits').select('count').eq('id', 1).single(); if (error) throw error; visitCountSpan.textContent = formatVisitCount(data.count); } catch (fetchError) { console.error("Failed to fetch visit count:", fetchError); visitCountSpan.textContent = 'Error'; } } }
+        async function fetchLogs() { if (!isSupabaseEnabled) return; try { const { data, error } = await supabaseClient.from('logs').select('*').order('created_at', { ascending: false }).limit(100); if (error) throw error; renderLog(data || []); } catch (error) { console.error("Error fetching logs: ", error); const logContainer = document.getElementById('log-container'); if(logContainer) logContainer.innerHTML = `<span class="text-red-500">Error loading log: ${error.message}</span>`; } }
+        function initLogListener() { if (!isSupabaseEnabled) return; fetchLogs(); supabaseClient.channel('logs-channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).subscribe(); }
+
+        // --- NEW FUNCTION: Update Arms UI ---
+        function updateArmsUI() {
+            const armsSelect = document.getElementById('arms');
+            const selectedArm = armsSelect.value;
+            const logoMain = document.querySelector('.logo-left');
+            const logoPrintLeft = document.querySelector('.print-logo-left');
+            const watermark = document.querySelector('.print-watermark');
+            const serviceNamePrint = document.getElementById('print-service-name');
+            const pakNoLabel = document.getElementById('lbl-pak-no');
+            const printPakNoLabel = document.getElementById('print-lbl-pak-no');
+
+            // 1. Update Logos
+            let logoFile = 'logo.gif'; // Default PAF
+            if (selectedArm === 'Army') logoFile = 'logo1.gif';
+            else if (selectedArm === 'Navy') logoFile = 'logo2.gif';
+
+            const updateSrc = (el) => {
+                if (el) {
+                    el.src = logoFile;
+                    // Reset onerror just in case it triggered before
+                    el.onerror = function() { 
+                        // Fallback logic if local file not found (optional, keeping PAF wikimedia as ultimate backup if desired, or just log error)
+                        if (selectedArm === 'PAF') this.src='https://upload.wikimedia.org/wikipedia/commons/9/97/Pakistan_Air_Force_emblem.png';
+                        // For Army/Navy, no online fallback specified, so maybe just show alt text or keep broken icon.
+                        this.onerror = null; 
+                    };
+                }
+            };
+
+            updateSrc(logoMain);
+            updateSrc(logoPrintLeft);
+            updateSrc(watermark);
+
+            // 2. Update Service Name in Print Header
+            if (serviceNamePrint) {
+                if (selectedArm === 'PAF') serviceNamePrint.textContent = 'Pakistan Air Force';
+                else if (selectedArm === 'Army') serviceNamePrint.textContent = 'Pakistan Army';
+                else if (selectedArm === 'Navy') serviceNamePrint.textContent = 'Pakistan Navy';
+            }
+
+            // 3. Update Labels (Pak No vs Service No)
+            const labelText = (selectedArm === 'PAF') ? 'Pak No' : 'Service No';
+            if (pakNoLabel) pakNoLabel.textContent = labelText;
+            if (printPakNoLabel) printPakNoLabel.textContent = labelText + ':';
+            
+            // 4. Update Ranks List (New Requirement)
+            updateRanks();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const appWarning = document.getElementById('app-warning');
+            function showWarning(message) { if (appWarning) { appWarning.textContent = message; appWarning.style.display = 'block'; } console.warn(message); }
+            if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) { showWarning("Supabase is not configured. Online features are disabled. Please paste your URL and Key into index.html."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else { try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); if (!supabaseClient) { throw new Error("Supabase client failed to initialize."); } isSupabaseEnabled = true; console.log("Supabase initialized successfully."); } catch (e) { console.error("Error initializing Supabase:", e); showWarning(`Error initializing online features: ${e.message}. App is in offline mode.`); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } }
+            
+            const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const clearLogBtn = document.getElementById('clear-log-btn'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const cnicInput = document.getElementById('cnic');
+            const showLogBtn = document.getElementById('show-log-btn');
+            const sosInput = document.getElementById('sos');
+            const armsSelect = document.getElementById('arms');
+            const dobInput = document.getElementById('dob');
+
+            // --- 1. SET DOB INITIALLY DISABLED ---
+            if (dobInput) dobInput.disabled = true;
+
+            // --- 2. PAK NO BLUR LISTENER ---
+            const pakNoInput = document.getElementById('pak-no');
+            if (pakNoInput && dobInput) {
+                pakNoInput.addEventListener('blur', async () => {
+                    const pakNo = pakNoInput.value.trim();
+                    
+                    // If empty, disable DOB
+                    if (!pakNo) {
+                        dobInput.disabled = true;
+                        return;
+                    }
+
+                    // Only check if Supabase is enabled
+                    if (isSupabaseEnabled) {
+                        try {
+                            const { data, error } = await supabaseClient
+                                .from('logs')
+                                .select('pak_no')
+                                .eq('pak_no', pakNo)
+                                .limit(1)
+                                .maybeSingle();
+
+                            if (error) throw error;
+
+                            if (data) {
+                                // Exists
+                                const selectedArm = document.getElementById('arms').value;
+                                const label = (selectedArm === 'Army' || selectedArm === 'Navy') ? 'Service No' : 'Pak No';
+                                openMessageModal("Attention", `${label} ${pakNo} already exists. Use "Load Data" button or enter New.`);
+                                dobInput.disabled = true; 
+                            } else {
+                                // Not found (New)
+                                dobInput.disabled = false;
+                            }
+                        } catch (err) {
+                            console.error("Validation error:", err);
+                            // Fallback on error: allow input to prevent blocking user
+                            dobInput.disabled = false; 
+                        }
+                    } else {
+                        // Offline mode
+                        dobInput.disabled = false;
+                    }
+                });
+            }
+
+            // SOS Validation Logic: Prevent future dates
+            if (sosInput) {
+                sosInput.max = new Date().toISOString().split('T')[0];
+                sosInput.addEventListener('change', () => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const selected = parseDate(sosInput.value);
+                    if (selected && selected > today) {
+                        alert("Date of Retirement (SOS) cannot be greater than today.");
+                        sosInput.value = '';
+                        calculateAndDisplayAll();
+                    }
+                });
+            }
+
+            // Warning on Gross Pension Click/Focus
+            if (grossPensionInput) {
+                const warnGrossPension = () => {
+                    if (grossPensionWarningShown) return; // Exit if already shown
+
+                    grossPensionInput.blur(); // Disable entry (remove focus)
+                    
+                    // Show modal logic
+                    const msgTitle = document.getElementById('msg-modal-title');
+                    const msgBody = document.getElementById('msg-modal-body');
+                    const msgModal = document.getElementById('message-modal');
+                    
+                    msgTitle.textContent = "ATTENTION";
+                    msgTitle.className = "text-lg font-bold mb-2 text-red-600 flashing";
+                    msgBody.textContent = "Please enter Gross Pension from PPO or Pension Book. Don't enter your current Pension";
+                    
+                    msgModal.classList.add('visible');
+                    
+                    grossPensionWarningShown = true; // Set flag so it doesn't show again
+                };
+                
+                // Add listener. To avoid spamming, maybe only if value is empty? 
+                // User query: "When clicked in..."
+                // I will use 'focus' as it covers click and tab.
+                grossPensionInput.addEventListener('focus', warnGrossPension);
+            }
+
+            if (!allInputs.length || !grossPensionInput || !increasePensionBtn || !decreasePensionBtn || !clearLogBtn || !cancelClearBtn || !confirmClearBtn || !passwordInput || !logContainer || !showLogBtn) { console.error("CRITICAL ERROR: One or more required HTML elements are missing from the page."); showWarning("CRITICAL ERROR: Page HTML is incomplete. Please reload."); return; }
+            
+            // Initialize Arms UI
+            if (armsSelect) {
+                armsSelect.addEventListener('change', updateArmsUI);
+                updateArmsUI(); // Run once on load
+            }
+
+            const nameInput = document.getElementById('name');
+            if (nameInput) {
+                nameInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                });
+            }
+
+            // New Listener for Family Pensioner Name Uppercase
+            const familyPensionerNameInput = document.getElementById('family-pensioner-name');
+            if (familyPensionerNameInput) {
+                familyPensionerNameInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                    calculateAndDisplayAll(); // Trigger update for print preview
+                });
+            }
+
+            // --- REUSABLE CNIC FORMATTING FUNCTION ---
+            const formatCNIC = (e) => {
+                let value = e.target.value.replace(/\D/g, ''); 
+                if (value.length > 13) value = value.substring(0, 13); 
+                let formatted = ''; 
+                if (value.length > 0) { formatted += value.substring(0, 5); } 
+                if (value.length >= 6) { formatted += '-' + value.substring(5, 12); } 
+                if (value.length >= 13) { formatted += '-' + value.substring(12, 13); } 
+                e.target.value = formatted;
+            };
+
+            // Main CNIC Listener
+            if (cnicInput) { cnicInput.addEventListener('input', formatCNIC); }
+
+            // Family CNIC Listener
+            const familyCnicInput = document.getElementById('family-pensioner-cnic');
+            if (familyCnicInput) { 
+                familyCnicInput.addEventListener('input', (e) => {
+                    formatCNIC(e);
+                    calculateAndDisplayAll(); // Trigger update for print preview
+                }); 
+            }
+
+            allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
+            grossPensionInput.addEventListener('input', formatGrossPensionInput);
+            increasePensionBtn.addEventListener('mousedown', () => startPress(1)); decreasePensionBtn.addEventListener('mousedown', () => startPress(-1)); document.addEventListener('mouseup', stopPress); document.addEventListener('mouseleave', stopPress); increasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(1); }); decreasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(-1); }); document.addEventListener('touchend', stopPress); document.addEventListener('touchcancel', stopPress);
+            if (printBtn) { printBtn.addEventListener('click', () => { window.print(); }); }
+            
+            if (isSupabaseEnabled) { 
+                showLogBtn.addEventListener('click', () => {
+                    passwordAction = 'show';
+                    openPasswordModal();
+                });
+                clearLogBtn.addEventListener('click', () => {
+                    passwordAction = 'clear';
+                    openPasswordModal();
+                });
+                cancelClearBtn.addEventListener('click', closePasswordModal); 
+                confirmClearBtn.addEventListener('click', handlePasswordSubmit); 
+                
+                // Add event listener for delete log button
+                logContainer.addEventListener('click', async (e) => { 
+                    if (e.target.classList.contains('load-log-btn')) { 
+                        loadLogData(e.target); 
+                    } else if (e.target.classList.contains('delete-log-btn')) {
+                        const logId = e.target.dataset.id;
+                        if (confirm('Are you sure you want to delete this log entry?')) {
+                             await deleteLogEntry(logId);
+                        }
+                    }
+                }); 
+                
+                passwordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { handlePasswordSubmit(); } }); 
+                
+                // --- NEW BUTTON LISTENER ---
+                const btnLoadData = document.getElementById('btn-load-data');
+                if (btnLoadData) {
+                    btnLoadData.addEventListener('click', async () => {
+                        const pakNoInput = document.getElementById('pak-no');
+                        const pakNo = pakNoInput.value.trim();
+                        
+                        if (!pakNo) {
+                             openMessageModal("Input Required", "Please enter a Pak No to search.");
+                             return;
+                        }
+
+                        // Show some loading state if needed
+                        btnLoadData.disabled = true;
+                        btnLoadData.textContent = "Loading...";
+
+                        try {
+                            const { data, error } = await supabaseClient
+                                .from('logs')
+                                .select('*')
+                                .eq('pak_no', pakNo)
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .maybeSingle();
+
+                            if (error) throw error;
+
+                            if (!data) {
+                                openMessageModal("No Data Found", "No Data Found. Enter Now.");
+                            } else {
+                                // Data found, open DOB verification modal
+                                pendingLoadData = data;
+                                openDobVerifyModal();
+                            }
+                        } catch (err) {
+                            console.error("Error loading data:", err);
+                            openMessageModal("Error", "Failed to load data. Please check your connection.");
+                        } finally {
+                            btnLoadData.disabled = false;
+                            btnLoadData.textContent = "Load Data";
+                        }
+                    });
+                }
+                
+                // DOB Verify Modal Listeners
+                const dobVerifyModal = document.getElementById('dob-verify-modal');
+                const cancelVerifyBtn = document.getElementById('cancel-verify-btn');
+                const confirmVerifyBtn = document.getElementById('confirm-verify-btn');
+                const verifyDobInput = document.getElementById('verify-dob-input');
+                const verifyDobError = document.getElementById('verify-dob-error');
+
+                // Open Modal Helper
+                window.openDobVerifyModal = () => {
+                    verifyDobInput.value = '';
+                    verifyDobError.style.display = 'none';
+                    dobVerifyModal.classList.add('visible');
+                    verifyDobInput.focus();
+                };
+
+                // Close Modal Helper
+                const closeDobVerifyModal = () => {
+                    dobVerifyModal.classList.remove('visible');
+                    pendingLoadData = null;
+                };
+
+                cancelVerifyBtn.addEventListener('click', closeDobVerifyModal);
+
+                confirmVerifyBtn.addEventListener('click', () => {
+                    const enteredDob = verifyDobInput.value;
+                    if (!enteredDob) {
+                        verifyDobError.textContent = "Please select a date.";
+                        verifyDobError.style.display = 'block';
+                        return;
+                    }
+
+                    if (pendingLoadData && pendingLoadData.dob_raw === enteredDob) {
+                        // Match! Load data
+                        // Let's call loadLogData with a special object
+                        const mockButton = {
+                            dataset: {
+                                rank: pendingLoadData.rank,
+                                arms: pendingLoadData.arms,
+                                name: pendingLoadData.name,
+                                pakNo: pendingLoadData.pak_no,
+                                cnic: pendingLoadData.cnic,
+                                accountNo: pendingLoadData.account_no,
+                                bankBranch: pendingLoadData.bank_branch,
+                                dob: pendingLoadData.dob_raw,
+                                doe: pendingLoadData.doe_raw,
+                                sos: pendingLoadData.sos_raw,
+                                pension: pendingLoadData.pension_raw,
+                                tk: pendingLoadData.tk,
+                                family: pendingLoadData.family,
+                                familyName: pendingLoadData.family_pensioner_name,
+                                familyCnic: pendingLoadData.family_pensioner_cnic,
+                                familyRelation: pendingLoadData.relation_with_pensioner,
+                                familyDob: pendingLoadData.family_dob_raw || ''
+                            }
+                        };
+                        
+                        loadLogData(mockButton);
+                        closeDobVerifyModal();
+                        openMessageModal("Success", "Data loaded successfully.");
+                    } else {
+                        verifyDobError.textContent = "Date of Birth does not match records.";
+                        verifyDobError.style.display = 'block';
+                    }
+                });
+
+                // Message Modal Helpers
+                const msgModal = document.getElementById('message-modal');
+                const msgTitle = document.getElementById('msg-modal-title');
+                const msgBody = document.getElementById('msg-modal-body');
+                const msgBtn = document.getElementById('msg-modal-btn');
+
+                window.openMessageModal = (title, body) => {
+                    msgTitle.textContent = title;
+                    msgBody.textContent = body;
+                    msgModal.classList.add('visible');
+                    msgBtn.focus();
+                };
+
+                msgBtn.addEventListener('click', () => {
+                    msgModal.classList.remove('visible');
+                    // Reset title style to default black when closing
+                    msgTitle.className = "text-lg font-bold mb-2";
+                });
+
+            } else { 
+                clearLogBtn.style.display = 'none'; 
+                showLogBtn.style.display = 'none';
+            }
+            
+            await initVisitCounter(); 
+            initLogListener();
+            try { calculateAndDisplayAll(); } catch (e) { console.error("Error during initial calculation:", e); } checkInputEnabling();
+        });
+    </script>
+</body>
+</html>
