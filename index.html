@@ -1330,7 +1330,7 @@
                 let minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0;
                 let minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0;
 
-                // Special minimum pension slabs (2018 to 2025) for age 85 or above.
+                // Special minimum pension slabs (2018 to 2025) for age 75 or above.
                 const specialMinPensionReferenceDates = {
                     2018: '2019-06-30',
                     2019: '2021-06-30',
@@ -1346,10 +1346,10 @@
                     const familyAgeOnReferenceDate = getAgeOnReferenceDate(familyDobDate, ageReferenceDate);
 
                     // Apply self/family rates independently based on their own ages.
-                    if (selfAgeOnReferenceDate !== null && selfAgeOnReferenceDate >= 85) {
+                    if (selfAgeOnReferenceDate !== null && selfAgeOnReferenceDate >= 75) {
                         minPensionSelf = 15000;
                     }
-                    if (familyAgeOnReferenceDate !== null && familyAgeOnReferenceDate >= 85) {
+                    if (familyAgeOnReferenceDate !== null && familyAgeOnReferenceDate >= 75) {
                         minPensionFamily = 11250;
                     }
                 }
