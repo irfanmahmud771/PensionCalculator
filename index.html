@@ -1459,10 +1459,10 @@ if ("serviceWorker" in navigator) {
                 row.insertCell().textContent = isEntitled;
                 row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.cells[11].classList.add('hidden-column'); row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; row.cells[12].classList.add('hidden-column');
                 const selfPension85Cell = row.insertCell();
-                selfPension85Cell.textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-';
+                selfPension85Cell.textContent = (year >= 2018 && year <= 2025) ? formatCurrency(15000, false, true) : '';
                 selfPension85Cell.classList.add('col-85');
                 const familyPension85Cell = row.insertCell();
-                familyPension85Cell.textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-';
+                familyPension85Cell.textContent = (year >= 2018 && year <= 2025) ? formatCurrency(11250, false, true) : '';
                 familyPension85Cell.classList.add('col-85');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
