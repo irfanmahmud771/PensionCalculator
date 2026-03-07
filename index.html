@@ -1457,8 +1457,8 @@ if ("serviceWorker" in navigator) {
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
                 row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.cells[11].classList.add('hidden-column'); row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; row.cells[12].classList.add('hidden-column');
-                row.insertCell().textContent = '-';
-                row.insertCell().textContent = '-';
+                row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-';
+                row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-';
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
                 if (isEntitled === 'N' || percentageToDisplay === '0%') { 
