@@ -1465,10 +1465,10 @@ if ("serviceWorker" in navigator) {
                 const isFamilyAge85OrMoreInPeriod = (year >= 2018 && year <= 2025 && familyPension85Date && pension85PeriodEnd) ? familyPension85Date <= pension85PeriodEnd : false;
 
                 const selfPension85Cell = row.insertCell();
-                selfPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : (isSelfAge85OrMoreInPeriod ? formatCurrency(minPensionSelf, false, true) : '');
+                selfPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isSelfAge85OrMoreInPeriod ? formatCurrency(15000, false, true) : '-') : '');
                 selfPension85Cell.classList.add('col-85');
                 const familyPension85Cell = row.insertCell();
-                familyPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : (isFamilyAge85OrMoreInPeriod ? formatCurrency(minPensionFamily, false, true) : '');
+                familyPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isFamilyAge85OrMoreInPeriod ? formatCurrency(11250, false, true) : '-') : '');
                 familyPension85Cell.classList.add('col-85');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
