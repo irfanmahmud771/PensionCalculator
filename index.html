@@ -374,7 +374,7 @@
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">Entitled</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">From</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">To</th>
-                            <th colspan="2" class="bg-cyan-200 text-cyan-700">Minimum Pension</th>
+                            <th colspan="2" class="bg-cyan-200 text-cyan-700 hidden-column">Minimum Pension</th>
                         </tr>
                         <tr classs="sub-header">
                             <th>Base Line</th>
@@ -383,8 +383,8 @@
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
-                            <th>Self</th>
-                            <th>Family</th>
+                            <th class="hidden-column">Self</th>
+                            <th class="hidden-column">Family</th>
                         </tr>
                     </thead>
                     <tbody id="increase-table-body">
@@ -1330,7 +1330,7 @@
                 let minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0;
                 let minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0;
 
-                // Special minimum pension slabs (2018 to 2025) for age 85 or above.
+                // Special minimum pension slabs (2018 to 2025) for age 75 or above.
                 const specialMinPensionReferenceDates = {
                     2018: '2019-06-30',
                     2019: '2021-06-30',
@@ -1346,10 +1346,10 @@
                     const familyAgeOnReferenceDate = getAgeOnReferenceDate(familyDobDate, ageReferenceDate);
 
                     // Apply self/family rates independently based on their own ages.
-                    if (selfAgeOnReferenceDate !== null && selfAgeOnReferenceDate >= 85) {
+                    if (selfAgeOnReferenceDate !== null && selfAgeOnReferenceDate >= 75) {
                         minPensionSelf = 15000;
                     }
-                    if (familyAgeOnReferenceDate !== null && familyAgeOnReferenceDate >= 85) {
+                    if (familyAgeOnReferenceDate !== null && familyAgeOnReferenceDate >= 75) {
                         minPensionFamily = 11250;
                     }
                 }
@@ -1450,7 +1450,7 @@
                 row.insertCell().textContent = isIncreaseCalculatedRestored ? formatCurrency(restoredIncreaseValue, false, true) : '-';
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
-                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-';
+                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); const minSelfCell = row.insertCell(); minSelfCell.textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; minSelfCell.classList.add('hidden-column'); const minFamilyCell = row.insertCell(); minFamilyCell.textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; minFamilyCell.classList.add('hidden-column');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
                 if (isEntitled === 'N' || percentageToDisplay === '0%') { 
