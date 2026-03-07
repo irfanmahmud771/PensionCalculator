@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2563eb">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pension Calculation App</title>
@@ -10,45 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-<button id="installApp" style="
-position:fixed;
-bottom:20px;
-right:20px;
-background:#2563eb;
-color:white;
-border:none;
-padding:12px 18px;
-border-radius:10px;
-font-weight:600;
-cursor:pointer;
-display:none;
-z-index:9999;
-">
-Install App
-</button>
-
-<script>
-let deferredPrompt;
-
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById("installApp").style.display="block";
-});
-
-document.getElementById("installApp").addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt = null;
-});
-</script>
-
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
-}
-</script>
         body { font-family: 'Inter', sans-serif; }
         .input-group { margin-bottom: 1rem; }
         .input-group label { display: block; margin-bottom: 0.25rem; color: #4A5568; font-size: 0.875rem; font-weight: 500; }
@@ -77,7 +36,6 @@ if ("serviceWorker" in navigator) {
         .increase-table .header-group th { padding: 12px 4px; }
         .increase-table .sub-header th { font-weight: 500; }
         .hidden-column { display: none; }
-        .col-85 { display: table-cell !important; }
         
         /* Modal Styles */
         .modal-overlay { position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
@@ -416,20 +374,17 @@ if ("serviceWorker" in navigator) {
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">Entitled</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">From</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">To</th>
-                            <th colspan="2" class="bg-cyan-200 text-cyan-700">Minimum Pension</th>
-                            <th colspan="2" class="bg-purple-200 text-purple-700 col-85">PENSION ON 85 YEARS</th>
+                            <th colspan="2" class="bg-cyan-200 text-cyan-700 hidden-column">Minimum Pension</th>
                         </tr>
-                        <tr class="sub-header">
+                        <tr classs="sub-header">
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
-                            <th>Self</th>
-                            <th>Family</th>
-                            <th class="col-85">SELF</th>
-                            <th class="col-85">FAMILY</th>
+                            <th class="hidden-column">Self</th>
+                            <th class="hidden-column">Family</th>
                         </tr>
                     </thead>
                     <tbody id="increase-table-body">
@@ -1318,16 +1273,6 @@ if ("serviceWorker" in navigator) {
             let totalAccumulatedIncreaseCurrent = 0; let totalAccumulatedIncreaseRestored = 0;
             const detailedData = [];
 
-            const getEffectiveMinPension = (targetYear, type) => {
-                let value = 0;
-                Object.keys(minPensionData).map(Number).sort((a, b) => a - b).forEach((y) => {
-                    if (y <= targetYear && minPensionData[y] && typeof minPensionData[y][type] === 'number') {
-                        value = minPensionData[y][type];
-                    }
-                });
-                return value;
-            };
-
             pensionIncreases.forEach(item => {
                 const row = tbody.insertRow(); const fromDate = parseDate(item.from); const toDate = parseDate(item.to);
                 const net2024 = previousNetValueCurrent; 
@@ -1347,7 +1292,7 @@ if ("serviceWorker" in navigator) {
                 } else if (item.percentage === 'CONDITIONAL') { percentageToDisplay = '-'; }
 
                 if (sosDate && fromDate && toDate) { const condition1 = (sosDate >= fromDate && sosDate <= toDate); const condition2 = (fromDate >= sosDate); if (condition1 || condition2) isEntitled = 'Y'; }
-                if (isEntitled === 'N' && !(year >= 2018 && year <= 2025)) { row.classList.add('hidden'); }
+                if (isEntitled === 'N') { row.classList.add('hidden'); }
 
                 let currentBaseLine = previousNetValueCurrent; let currentIncreaseValue = 0; let currentNetValue = currentBaseLine; let baseLineDisplayCurrent = '-';
                 let restoredBaseLine = previousNetValueRestored; let restoredIncreaseValue = 0; let restoredNetValue = restoredBaseLine; let baseLineDisplayRestored = '-';
@@ -1370,7 +1315,7 @@ if ("serviceWorker" in navigator) {
                 
                 const percentageText = percentageToDisplay.replace('%', ''); const percentageValue = parseFloat(percentageText) / 100;
                 let isIncreaseCalculatedCurrent = false; let isNetCalculatedCurrent = false; let isIncreaseCalculatedRestored = false; let isNetCalculatedRestored = false;
-                const minPensionSelf = getEffectiveMinPension(year, 'self'); const minPensionFamily = getEffectiveMinPension(year, 'family'); const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
+                const minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0; const minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0; const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
                 let minPensionAppliedCurrent = false; let minPensionAppliedRestored = false;
 
                 if (year === 1987) { 
@@ -1467,22 +1412,10 @@ if ("serviceWorker" in navigator) {
                 row.insertCell().textContent = isIncreaseCalculatedRestored ? formatCurrency(restoredIncreaseValue, false, true) : '-';
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
-                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; 
-                const pension85PeriodEnd = (year === 2025) ? parseDate(getTodayDateString()) : new Date(Date.UTC(year + 1, 5, 30));
-                const selfPension85Date = dobDate ? new Date(Date.UTC(dobDate.getUTCFullYear() + 85, dobDate.getUTCMonth(), dobDate.getUTCDate())) : null;
-                const familyPension85Date = familyDobDate ? new Date(Date.UTC(familyDobDate.getUTCFullYear() + 85, familyDobDate.getUTCMonth(), familyDobDate.getUTCDate())) : null;
-                const isSelfAge85OrMoreInPeriod = (year >= 2018 && year <= 2025 && selfPension85Date && pension85PeriodEnd) ? selfPension85Date <= pension85PeriodEnd : false;
-                const isFamilyAge85OrMoreInPeriod = (year >= 2018 && year <= 2025 && familyPension85Date && pension85PeriodEnd) ? familyPension85Date <= pension85PeriodEnd : false;
-
-                const selfPension85Cell = row.insertCell();
-                selfPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isSelfAge85OrMoreInPeriod ? formatCurrency(minPensionSelf, false, true) : '-') : '');
-                selfPension85Cell.classList.add('col-85');
-                const familyPension85Cell = row.insertCell();
-                familyPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isFamilyAge85OrMoreInPeriod ? formatCurrency(minPensionFamily, false, true) : '-') : '');
-                familyPension85Cell.classList.add('col-85');
+                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.cells[11].classList.add('hidden-column'); row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; row.cells[12].classList.add('hidden-column');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
-                if ((isEntitled === 'N' || percentageToDisplay === '0%') && !(year >= 2018 && year <= 2025)) { 
+                if (isEntitled === 'N' || percentageToDisplay === '0%') { 
                     row.classList.add('hidden'); 
                 }
             });
