@@ -1318,6 +1318,16 @@ if ("serviceWorker" in navigator) {
             let totalAccumulatedIncreaseCurrent = 0; let totalAccumulatedIncreaseRestored = 0;
             const detailedData = [];
 
+            const getEffectiveMinPension = (targetYear, type) => {
+                let value = 0;
+                Object.keys(minPensionData).map(Number).sort((a, b) => a - b).forEach((y) => {
+                    if (y <= targetYear && minPensionData[y] && typeof minPensionData[y][type] === 'number') {
+                        value = minPensionData[y][type];
+                    }
+                });
+                return value;
+            };
+
             pensionIncreases.forEach(item => {
                 const row = tbody.insertRow(); const fromDate = parseDate(item.from); const toDate = parseDate(item.to);
                 const net2024 = previousNetValueCurrent; 
@@ -1360,7 +1370,7 @@ if ("serviceWorker" in navigator) {
                 
                 const percentageText = percentageToDisplay.replace('%', ''); const percentageValue = parseFloat(percentageText) / 100;
                 let isIncreaseCalculatedCurrent = false; let isNetCalculatedCurrent = false; let isIncreaseCalculatedRestored = false; let isNetCalculatedRestored = false;
-                const minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0; const minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0; const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
+                const minPensionSelf = getEffectiveMinPension(year, 'self'); const minPensionFamily = getEffectiveMinPension(year, 'family'); const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
                 let minPensionAppliedCurrent = false; let minPensionAppliedRestored = false;
 
                 if (year === 1987) { 
@@ -1458,11 +1468,17 @@ if ("serviceWorker" in navigator) {
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
                 row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; 
+                const pension85PeriodEnd = (year === 2025) ? parseDate(getTodayDateString()) : new Date(Date.UTC(year + 1, 5, 30));
+                const selfPension85Date = dobDate ? new Date(Date.UTC(dobDate.getUTCFullYear() + 85, dobDate.getUTCMonth(), dobDate.getUTCDate())) : null;
+                const familyPension85Date = familyDobDate ? new Date(Date.UTC(familyDobDate.getUTCFullYear() + 85, familyDobDate.getUTCMonth(), familyDobDate.getUTCDate())) : null;
+                const isSelfAge85OrMoreInPeriod = (year >= 2018 && year <= 2025 && selfPension85Date && pension85PeriodEnd) ? selfPension85Date <= pension85PeriodEnd : false;
+                const isFamilyAge85OrMoreInPeriod = (year >= 2018 && year <= 2025 && familyPension85Date && pension85PeriodEnd) ? familyPension85Date <= pension85PeriodEnd : false;
+
                 const selfPension85Cell = row.insertCell();
-                selfPension85Cell.textContent = '-';
+                selfPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isSelfAge85OrMoreInPeriod ? formatCurrency(minPensionSelf, false, true) : '-') : '');
                 selfPension85Cell.classList.add('col-85');
                 const familyPension85Cell = row.insertCell();
-                familyPension85Cell.textContent = '-';
+                familyPension85Cell.textContent = (year >= 1987 && year <= 2017) ? '-' : ((year >= 2018 && year <= 2025) ? (isFamilyAge85OrMoreInPeriod ? formatCurrency(minPensionFamily, false, true) : '-') : '');
                 familyPension85Cell.classList.add('col-85');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
