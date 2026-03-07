@@ -77,6 +77,7 @@ if ("serviceWorker" in navigator) {
         .increase-table .header-group th { padding: 12px 4px; }
         .increase-table .sub-header th { font-weight: 500; }
         .hidden-column { display: none; }
+        .col-85 { display: table-cell !important; }
         
         /* Modal Styles */
         .modal-overlay { position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
@@ -415,17 +416,20 @@ if ("serviceWorker" in navigator) {
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">Entitled</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">From</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">To</th>
-                            <th colspan="2" class="bg-cyan-200 text-cyan-700 hidden-column">Minimum Pension</th>
+                            <th colspan="2" class="bg-cyan-200 text-cyan-700">Minimum Pension</th>
+                            <th colspan="2" class="bg-purple-200 text-purple-700 col-85">PENSION ON 85 YEARS</th>
                         </tr>
-                        <tr classs="sub-header">
+                        <tr class="sub-header">
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
-                            <th class="hidden-column">Self</th>
-                            <th class="hidden-column">Family</th>
+                            <th>Self</th>
+                            <th>Family</th>
+                            <th class="col-85">SELF</th>
+                            <th class="col-85">FAMILY</th>
                         </tr>
                     </thead>
                     <tbody id="increase-table-body">
@@ -1333,7 +1337,7 @@ if ("serviceWorker" in navigator) {
                 } else if (item.percentage === 'CONDITIONAL') { percentageToDisplay = '-'; }
 
                 if (sosDate && fromDate && toDate) { const condition1 = (sosDate >= fromDate && sosDate <= toDate); const condition2 = (fromDate >= sosDate); if (condition1 || condition2) isEntitled = 'Y'; }
-                if (isEntitled === 'N') { row.classList.add('hidden'); }
+                if (isEntitled === 'N' && !(year >= 2018 && year <= 2025)) { row.classList.add('hidden'); }
 
                 let currentBaseLine = previousNetValueCurrent; let currentIncreaseValue = 0; let currentNetValue = currentBaseLine; let baseLineDisplayCurrent = '-';
                 let restoredBaseLine = previousNetValueRestored; let restoredIncreaseValue = 0; let restoredNetValue = restoredBaseLine; let baseLineDisplayRestored = '-';
@@ -1453,10 +1457,16 @@ if ("serviceWorker" in navigator) {
                 row.insertCell().textContent = isIncreaseCalculatedRestored ? formatCurrency(restoredIncreaseValue, false, true) : '-';
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
-                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.cells[11].classList.add('hidden-column'); row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; row.cells[12].classList.add('hidden-column');
+                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); row.insertCell().textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; row.insertCell().textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; 
+                const selfPension85Cell = row.insertCell();
+                selfPension85Cell.textContent = '-';
+                selfPension85Cell.classList.add('col-85');
+                const familyPension85Cell = row.insertCell();
+                familyPension85Cell.textContent = '-';
+                familyPension85Cell.classList.add('col-85');
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
-                if (isEntitled === 'N' || percentageToDisplay === '0%') { 
+                if ((isEntitled === 'N' || percentageToDisplay === '0%') && !(year >= 2018 && year <= 2025)) { 
                     row.classList.add('hidden'); 
                 }
             });
