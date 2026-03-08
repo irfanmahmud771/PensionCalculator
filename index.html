@@ -380,17 +380,19 @@
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">Entitled</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">From</th>
                             <th rowspan="2" class="bg-blue-100 text-blue-600 hidden-column">To</th>
-                            <th colspan="2" class="bg-cyan-200 text-cyan-700 hidden-column">Minimum Pension</th>
+                            <th colspan="4" class="bg-cyan-200 text-cyan-700">Minimum Pension</th>
                         </tr>
-                        <tr classs="sub-header">
+                        <tr class="sub-header">
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
-                            <th class="hidden-column">Self</th>
-                            <th class="hidden-column">Family</th>
+                            <th>Normal Self</th>
+                            <th>Normal Family</th>
+                            <th>Special (75) Self</th>
+                            <th>Special (75) Family</th>
                         </tr>
                     </thead>
                     <tbody id="increase-table-body">
@@ -711,7 +713,7 @@
         const factors_2001_12_01 = {}; const factors_1986_07_01 = {}; const factors_1966_07_01 = {};
         pensionData.forEach(item => { factors_2001_12_01[item.age] = item.val_2001; factors_1986_07_01[item.age] = item.val_1986; factors_1966_07_01[item.age] = item.val_1966; });
         const minPensionData = { 1988: { self: 300.00, family: 150.00 }, 1995: { self: 300.00, family: 150.00 }, 1997: { self: 300.00, family: 150.00 }, 1999: { self: 300.00, family: 150.00 }, 2008: { self: 2000.00, family: 1000.00 }, 2010: { self: 3000.00, family: 2250.00 }, 2013: { self: 5000.00, family: 3750.00 }, 2014: { self: 6000.00, family: 4500.00 }, 2018: { self: 10000.00, family: 7500.00 }, 2023: { self: 12000.00, family: 9000.00 } };
-        const pensionIncreases = [ { year: 1987, percentage: '4%', from: '1987-06-30', to: '1987-06-30' }, { year: 1988, percentage: '7%', from: '1988-06-30', to: '1988-06-30' }, { year: 1990, percentage: '5%', from: '1990-06-30', to: '1990-06-30' }, { year: 1991, percentage: 'CONDITIONAL', from: '1991-06-30', to: '1991-06-30' }, { year: 1995, percentage: 'CONDITIONAL', from: '1995-07-01', to: '1995-07-01' }, { year: 1997, percentage: '10%', from: '1997-02-28', to: '1997-02-28' }, { year: 1999, percentage: '25%', from: '1999-07-01', to: '2001-11-30' }, { year: 2001, percentage: 'CONDITIONAL', from: '2001-11-30', to: '2001-11-30' }, { year: 2003, percentage: '15%', from: '2003-07-01', to: '2005-06-30' }, { year: 2004, percentage: 'CONDITIONAL', from: '2004-07-01', to: '2005-06-30' }, { year: 2005, percentage: '10%', from: '2005-07-01', to: '2011-06-30' }, { year: 2006, percentage: 'CONDITIONAL', from: '2006-07-01', to: '2011-06-30' }, { year: 2007, percentage: 'CONDITIONAL', from: '2007-07-01', to: '2007-07-01' }, { year: 2008, percentage: '20%', from: '2008-07-01', to: '2008-07-01' }, { year: 2009, percentage: 'CONDITIONAL', from: '2009-07-01', to: '2011-06-30' }, { year: 2010, percentage: 'CONDITIONAL', from: '2010-07-01', to: '2017-06-30' }, { year: 2011, percentage: 'CONDITIONAL', from: '2011-07-01', to: todayDateString }, { year: 2012, percentage: '20%', from: '2012-07-01', to: '2015-06-30' }, { year: 2013, percentage: '10%', from: '2013-07-01', to: '2016-06-30' }, { year: 2014, percentage: '10%', from: '2014-07-01', to: '2016-06-30' }, { year: 2015, percentage: '7.5%', from: '2012-07-01', to: todayDateString }, { year: 2016, percentage: '10%', from: '2016-07-01', to: '2022-06-30' }, { year: 2017, percentage: '10%', from: '2017-07-01', to: '2022-06-30' }, { year: 2018, percentage: '10%', from: '2018-07-01', to: '2022-06-30' }, { year: 2019, percentage: '10%', from: '2019-07-01', to: '2021-06-30' }, { year: 2021, percentage: '10%', from: '2021-07-01', to: '2022-06-30' }, { year: 2022, percentage: '15%', from: '2022-07-01', to: '2023-06-30' }, { year: 2023, percentage: '17.50%', from: '2023-07-01', to: '2024-06-30' }, { year: 2024, percentage: '15%', from: '2024-07-01', to: '2025-06-30' }, { year: 2025, percentage: '7%', from: '2025-07-01', to: '2026-06-30' } ];
+        const pensionIncreases = [ { year: 1987, percentage: '4%', from: '1987-06-30', to: '1987-06-30' }, { year: 1988, percentage: '7%', from: '1988-06-30', to: '1988-06-30' }, { year: 1990, percentage: '5%', from: '1990-06-30', to: '1990-06-30' }, { year: 1991, percentage: 'CONDITIONAL', from: '1991-06-30', to: '1991-06-30' }, { year: 1995, percentage: 'CONDITIONAL', from: '1995-07-01', to: '1995-07-01' }, { year: 1997, percentage: '10%', from: '1997-02-28', to: '1997-02-28' }, { year: 1999, percentage: '25%', from: '1999-07-01', to: '2001-11-30' }, { year: 2001, percentage: 'CONDITIONAL', from: '2001-11-30', to: '2001-11-30' }, { year: 2003, percentage: '15%', from: '2003-07-01', to: '2005-06-30' }, { year: 2004, percentage: 'CONDITIONAL', from: '2004-07-01', to: '2005-06-30' }, { year: 2005, percentage: '10%', from: '2005-07-01', to: '2011-06-30' }, { year: 2006, percentage: 'CONDITIONAL', from: '2006-07-01', to: '2011-06-30' }, { year: 2007, percentage: 'CONDITIONAL', from: '2007-07-01', to: '2007-07-01' }, { year: 2008, percentage: '20%', from: '2008-07-01', to: '2008-07-01' }, { year: 2009, percentage: 'CONDITIONAL', from: '2009-07-01', to: '2011-06-30' }, { year: 2010, percentage: 'CONDITIONAL', from: '2010-07-01', to: '2017-06-30' }, { year: 2011, percentage: 'CONDITIONAL', from: '2011-07-01', to: todayDateString }, { year: 2012, percentage: '20%', from: '2012-07-01', to: '2015-06-30' }, { year: 2013, percentage: '10%', from: '2013-07-01', to: '2016-06-30' }, { year: 2014, percentage: '10%', from: '2014-07-01', to: '2016-06-30' }, { year: 2015, percentage: '7.5%', from: '2012-07-01', to: todayDateString }, { year: 2016, percentage: '10%', from: '2016-07-01', to: '2022-06-30' }, { year: 2017, percentage: '10%', from: '2017-07-01', to: '2022-06-30' }, { year: 2018, percentage: '10%', from: '2018-07-01', to: '2022-06-30' }, { year: 2019, percentage: '10%', from: '2019-07-01', to: '2022-06-30' }, { year: 2021, percentage: '10%', from: '2021-07-01', to: '2022-06-30' }, { year: 2022, percentage: '15%', from: '2022-07-01', to: todayDateString }, { year: 2023, percentage: '17.50%', from: '2023-07-01', to: todayDateString }, { year: 2024, percentage: '15%', from: '2024-07-01', to: todayDateString }, { year: 2025, percentage: '7%', from: '2025-07-01', to: todayDateString } ];
 
         // --- DEFINE FUNCTIONS ---
         // Moved calculateAndDisplayAll to higher scope for clarity
@@ -1267,17 +1269,6 @@
         function adjustPension(amount) { const grossPensionInput = document.getElementById('gross-pension-ppo'); const currentValue = parseFloat(grossPensionInput.value.replace(/,/g, '')) || 0; const newValue = Math.max(0, currentValue + amount); let newValueString = String(roundToTwoDecimals(newValue)); const parts = newValueString.split('.'); let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); grossPensionInput.value = parts.length > 1 ? integerPart + '.' + parts[1] : integerPart; grossPensionInput.dispatchEvent(new Event('input', { bubbles: true })); }
         function formatGrossPensionInput(event) { let input = event.target.value.replace(/[^0-9.]/g, ''); const parts = input.split('.'); if (parts.length > 2) { input = parts[0] + '.' + parts.slice(1).join(''); } if (parts.length === 2) { parts[1] = parts[1].substring(0, 2); input = parts.join('.'); } let integerPart = parts[0].replace(/,/g, ''); integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ","); event.target.value = parts.length > 1 ? integerPart + '.' + parts[1] : integerPart; calculateAndDisplayAll(); if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); if (dobInput.value && doeInput.value && sosInput.value && event.target.value) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }
 
-        function getAgeOnReferenceDate(dateOfBirth, referenceDate) {
-            if (!dateOfBirth || !referenceDate) return null;
-            let age = referenceDate.getUTCFullYear() - dateOfBirth.getUTCFullYear();
-            const monthDiff = referenceDate.getUTCMonth() - dateOfBirth.getUTCMonth();
-            const dayDiff = referenceDate.getUTCDate() - dateOfBirth.getUTCDate();
-            if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-                age--;
-            }
-            return age;
-        }
-
         // Updated populateIncreaseTable to accept isFamilyPension and familyDobDate
         function populateIncreaseTable(sosDate, grossPension, basePension, dobDate, isFamilyPension, familyDobDate) {
              const tbody = document.getElementById('increase-table-body'); tbody.innerHTML = '';
@@ -1333,32 +1324,11 @@
                 const percentageText = percentageToDisplay.replace('%', ''); const percentageValue = parseFloat(percentageText) / 100;
                 let isIncreaseCalculatedCurrent = false; let isNetCalculatedCurrent = false; let isIncreaseCalculatedRestored = false; let isNetCalculatedRestored = false;
 
-                let minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0;
-                let minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0;
-
-                // Special minimum pension slabs (2018 to 2025) for age 75 or above.
-                const specialMinPensionReferenceDates = {
-                    2018: '2019-06-30',
-                    2019: '2021-06-30',
-                    2021: '2022-06-30',
-                    2022: '2023-06-30',
-                    2023: '2024-06-30',
-                    2024: '2025-06-30',
-                    2025: '2026-06-30'
-                };
-                if (specialMinPensionReferenceDates[year]) {
-                    const ageReferenceDate = parseDate(specialMinPensionReferenceDates[year]);
-                    const selfAgeOnReferenceDate = getAgeOnReferenceDate(dobDate, ageReferenceDate);
-                    const familyAgeOnReferenceDate = getAgeOnReferenceDate(familyDobDate, ageReferenceDate);
-
-                    // Apply self/family rates independently based on their own ages.
-                    if (selfAgeOnReferenceDate !== null && selfAgeOnReferenceDate >= 75) {
-                        minPensionSelf = 15000;
-                    }
-                    if (familyAgeOnReferenceDate !== null && familyAgeOnReferenceDate >= 75) {
-                        minPensionFamily = 11250;
-                    }
-                }
+                const minPensionSelf = minPensionData[year] ? minPensionData[year].self : 0;
+                const minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0;
+                const isSpecialMinDisplayYear = year >= 2018 && year <= 2025;
+                const specialMinDisplaySelf = isSpecialMinDisplayYear ? 15000 : 0;
+                const specialMinDisplayFamily = isSpecialMinDisplayYear ? 11200 : 0;
                 const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
                 let minPensionAppliedCurrent = false; let minPensionAppliedRestored = false;
 
@@ -1456,7 +1426,7 @@
                 row.insertCell().textContent = isIncreaseCalculatedRestored ? formatCurrency(restoredIncreaseValue, false, true) : '-';
                 const netCellRestored = row.insertCell(); netCellRestored.textContent = isNetCalculatedRestored ? formatCurrency(restoredNetValue, false, true) : '-'; if (minPensionAppliedRestored) netCellRestored.classList.add('text-blue-600', 'font-bold');
                 row.insertCell().textContent = isEntitled;
-                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); const minSelfCell = row.insertCell(); minSelfCell.textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; minSelfCell.classList.add('hidden-column'); const minFamilyCell = row.insertCell(); minFamilyCell.textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; minFamilyCell.classList.add('hidden-column');
+                row.cells[8].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.from); row.cells[9].classList.add('hidden-column'); row.insertCell().textContent = formatDateTable(item.to); row.cells[10].classList.add('hidden-column'); const minSelfCell = row.insertCell(); minSelfCell.textContent = minPensionSelf > 0 ? formatCurrency(minPensionSelf, false, true) : '-'; const minFamilyCell = row.insertCell(); minFamilyCell.textContent = minPensionFamily > 0 ? formatCurrency(minPensionFamily, false, true) : '-'; const specialMinSelfCell = row.insertCell(); specialMinSelfCell.textContent = specialMinDisplaySelf > 0 ? formatCurrency(specialMinDisplaySelf, false, true) : '-'; const specialMinFamilyCell = row.insertCell(); specialMinFamilyCell.textContent = specialMinDisplayFamily > 0 ? formatCurrency(specialMinDisplayFamily, false, true) : '-';
             
                 // --- NEW REQUIREMENT: Hide if %AGE is 0% ---
                 if (isEntitled === 'N' || percentageToDisplay === '0%') { 
