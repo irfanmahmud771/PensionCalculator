@@ -154,6 +154,9 @@
             <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Pension Calculator</h1>
             <p class="text-red-600 mt-1">(For Retirement date 01 July, 1986 to till now)</p>
             <p class="text-blue-600 mt-1 font-medium">Designed by Chf Wrt Off Irfan Mahmud Sect Asstt</p>
+            <button id="install-app-btn" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors mt-3">
+                Install App (Windows/Android)
+            </button>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1933,6 +1936,64 @@
                 });
             });
         }
+
+        let deferredInstallPrompt = null;
+
+        const isTargetInstallPlatform = () => {
+            const userAgent = navigator.userAgent || '';
+            return /android|windows/i.test(userAgent);
+        };
+
+        const isAppInstalled = () => {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        };
+
+        const updateInstallButtonVisibility = () => {
+            const installBtn = document.getElementById('install-app-btn');
+            if (!installBtn) return;
+
+            const canShowInstallButton = isTargetInstallPlatform() && !isAppInstalled() && !!deferredInstallPrompt;
+            installBtn.classList.toggle('hidden', !canShowInstallButton);
+        };
+
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredInstallPrompt = event;
+            updateInstallButtonVisibility();
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredInstallPrompt = null;
+            updateInstallButtonVisibility();
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const installBtn = document.getElementById('install-app-btn');
+            if (!installBtn) return;
+
+            updateInstallButtonVisibility();
+
+            installBtn.addEventListener('click', async () => {
+                if (isAppInstalled()) {
+                    installBtn.classList.add('hidden');
+                    return;
+                }
+
+                if (!deferredInstallPrompt) {
+                    if (window.openMessageModal) {
+                        window.openMessageModal('Install App', 'Install prompt is not available right now. Please open this app in Chrome/Edge and use the browser menu to install it.');
+                    } else {
+                        alert('Install prompt is not available right now. Please open this app in Chrome/Edge and use the browser menu to install it.');
+                    }
+                    return;
+                }
+
+                deferredInstallPrompt.prompt();
+                await deferredInstallPrompt.userChoice;
+                deferredInstallPrompt = null;
+                updateInstallButtonVisibility();
+            });
+        });
     </script>
 </body>
 </html>
