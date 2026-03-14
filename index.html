@@ -362,6 +362,10 @@
                             <span class="label w-full md:w-1/3 whitespace-nowrap">Age on Pension Restoration</span>
                             <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="age-at-restoration-output">0 Years</span>
                         </div>
+                        <div class="output-group">
+                            <span class="label w-full md:w-1/3 whitespace-nowrap">Period Remaing in Restoration</span>
+                            <span class="value w-full md:w-1/3 text-left md:text-right text-gray-800 whitespace-nowrap" id="period-remaining-restoration-output">0 Years</span>
+                        </div>
                      </div>
                 </div>
             </div>
@@ -1014,7 +1018,13 @@
 
                 const restorationOutputSpan = document.getElementById('restoration-date-output'); const restorationDateFormatted = restorationDate ? formatDateDisplay(restorationDate) : 'N/A'; restorationOutputSpan.textContent = restorationDateFormatted;
                 if (restorationDate) { const today2 = parseDate(getTodayDateString()); restorationOutputSpan.className = 'value'; if (restorationDate > today2) { restorationOutputSpan.classList.add('text-red-600', 'font-bold'); } else { restorationOutputSpan.classList.add('text-green-600', 'font-bold', 'flashing'); } } else { restorationOutputSpan.className = 'value text-gray-800'; }
-                let restorationAgeDisplay = 'N/A'; if (dobDate && restorationDate && restorationDate > dobDate) { let totalMonths = (restorationDate.getUTCFullYear() - dobDate.getUTCFullYear()) * 12; totalMonths -= dobDate.getUTCMonth(); totalMonths += restorationDate.getUTCMonth(); if (restorationDate.getUTCDate() < dobDate.getUTCDate()) { totalMonths--; } const restorationAgeYears = Math.floor(totalMonths / 12); const restorationAgeMonths = totalMonths % 12; let yearsString = `${restorationAgeYears} Years`; let monthsString = (restorationAgeMonths === 1) ? `, 1 Month` : (restorationAgeMonths > 1) ? `, ${restorationAgeMonths} Months` : ''; restorationAgeDisplay = yearsString + monthsString; } document.getElementById('age-at-restoration-output').textContent = restorationAgeDisplay;
+                const formatYearsMonthsDisplay = (fromDate, toDate) => { let totalMonths = (toDate.getUTCFullYear() - fromDate.getUTCFullYear()) * 12; totalMonths -= fromDate.getUTCMonth(); totalMonths += toDate.getUTCMonth(); if (toDate.getUTCDate() < fromDate.getUTCDate()) { totalMonths--; } if (totalMonths < 0) { return 'N/A'; } const years = Math.floor(totalMonths / 12); const months = totalMonths % 12; let yearsString = `${years} Years`; let monthsString = (months === 1) ? `, 1 Month` : (months > 1) ? `, ${months} Months` : ''; return yearsString + monthsString; };
+                let restorationAgeDisplay = 'N/A'; if (dobDate && restorationDate && restorationDate > dobDate) { restorationAgeDisplay = formatYearsMonthsDisplay(dobDate, restorationDate); } document.getElementById('age-at-restoration-output').textContent = restorationAgeDisplay;
+                const periodRemainingOutputSpan = document.getElementById('period-remaining-restoration-output');
+                let periodRemainingDisplay = 'N/A';
+                periodRemainingOutputSpan.className = 'value w-full md:w-1/3 text-left md:text-right whitespace-nowrap text-gray-800';
+                if (restorationDate) { const today3 = parseDate(getTodayDateString()); if (restorationDate <= today3) { periodRemainingDisplay = 'Restored'; periodRemainingOutputSpan.classList.remove('text-gray-800'); periodRemainingOutputSpan.classList.add('text-green-600', 'font-bold'); } else { periodRemainingDisplay = formatYearsMonthsDisplay(today3, restorationDate); } }
+                periodRemainingOutputSpan.textContent = periodRemainingDisplay;
                 currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.tkAllowance = tkAllowance;
             } catch (error) { console.error("Error in calculateAndDisplayAll:", error); }
         }
