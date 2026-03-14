@@ -1955,12 +1955,8 @@
             const installBtn = document.getElementById('install-app-btn');
             if (!installBtn) return;
 
-            if (!isTargetInstallPlatform() || isAppInstalled()) {
-                installBtn.classList.add('hidden');
-                return;
-            }
-
-            installBtn.classList.remove('hidden');
+            const canShowInstallButton = isTargetInstallPlatform() && !isAppInstalled() && !!deferredInstallPrompt;
+            installBtn.classList.toggle('hidden', !canShowInstallButton);
         };
 
         window.addEventListener('beforeinstallprompt', (event) => {
