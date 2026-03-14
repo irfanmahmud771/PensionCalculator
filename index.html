@@ -389,8 +389,8 @@
                             <th>Base Line</th>
                             <th>Increase</th>
                             <th>Net</th>
-                            <th>Normal Self</th>
-                            <th>Normal Family</th>
+                            <th>Self</th>
+                            <th>Family</th>
                         </tr>
                     </thead>
                     <tbody id="increase-table-body">
@@ -1340,8 +1340,26 @@
                     return baseSelfMin;
                 };
 
+                const getFamilyNormalMinimumPension = (increaseYear, familyPensionDobDate) => {
+                    const baseFamilyMin = minPensionData[increaseYear] ? minPensionData[increaseYear].family : 0;
+                    if (!familyPensionDobDate || ![2018, 2019, 2021, 2022, 2023, 2024, 2025].includes(increaseYear)) return baseFamilyMin;
+
+                    const seventyFifthBirthday = new Date(familyPensionDobDate.getFullYear() + 75, familyPensionDobDate.getMonth(), familyPensionDobDate.getDate());
+                    const isBeforeOrOnCutoff = (cutoffDate) => seventyFifthBirthday <= parseDate(cutoffDate);
+
+                    if (increaseYear === 2018) return isBeforeOrOnCutoff('2019-06-30') ? 11200 : 7500;
+                    if (increaseYear === 2019) return isBeforeOrOnCutoff('2021-06-30') ? 11200 : 0;
+                    if (increaseYear === 2021) return isBeforeOrOnCutoff('2022-06-30') ? 11200 : 0;
+                    if (increaseYear === 2022) return isBeforeOrOnCutoff('2023-06-30') ? 11200 : 0;
+                    if (increaseYear === 2023) return isBeforeOrOnCutoff('2024-06-30') ? 11200 : 9000;
+                    if (increaseYear === 2024) return isBeforeOrOnCutoff('2025-06-30') ? 11200 : 0;
+                    if (increaseYear === 2025) return isBeforeOrOnCutoff('2026-06-30') ? 11200 : 0;
+
+                    return baseFamilyMin;
+                };
+
                 const minPensionSelf = getSelfNormalMinimumPension(year, dobDate);
-                const minPensionFamily = minPensionData[year] ? minPensionData[year].family : 0;
+                const minPensionFamily = getFamilyNormalMinimumPension(year, familyDobDate);
                 const applicableMinPension = isFamilyPension ? minPensionFamily : minPensionSelf;
                 let minPensionAppliedCurrent = false; let minPensionAppliedRestored = false;
 
