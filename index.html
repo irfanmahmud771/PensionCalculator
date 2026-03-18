@@ -420,9 +420,6 @@
                 <button id="show-log-btn" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-lg transition-colors">
                     Show Log
                 </button>
-                <button id="clear-log-btn" class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-lg transition-colors">
-                    Clear Log
-                </button>
             </div>
             <div id="log-container" class="h-48 overflow-y-auto bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono" style="display: none;">
                 <span class="text-gray-400">Loading log...</span>
@@ -1617,7 +1614,7 @@
             function showWarning(message) { if (appWarning) { appWarning.textContent = message; appWarning.style.display = 'block'; } console.warn(message); }
             if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) { showWarning("Supabase is not configured. Online features are disabled. Please paste your URL and Key into index.html."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else { try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); if (!supabaseClient) { throw new Error("Supabase client failed to initialize."); } isSupabaseEnabled = true; console.log("Supabase initialized successfully."); } catch (e) { console.error("Error initializing Supabase:", e); showWarning(`Error initializing online features: ${e.message}. App is in offline mode.`); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } }
             
-            const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const clearLogBtn = document.getElementById('clear-log-btn'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const cnicInput = document.getElementById('cnic');
+            const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const cnicInput = document.getElementById('cnic');
             const showLogBtn = document.getElementById('show-log-btn');
             const sosInput = document.getElementById('sos');
             const armsSelect = document.getElementById('arms');
@@ -1714,7 +1711,7 @@
                 grossPensionInput.addEventListener('focus', warnGrossPension);
             }
 
-            if (!allInputs.length || !grossPensionInput || !increasePensionBtn || !decreasePensionBtn || !clearLogBtn || !cancelClearBtn || !confirmClearBtn || !passwordInput || !logContainer || !showLogBtn) { console.error("CRITICAL ERROR: One or more required HTML elements are missing from the page."); showWarning("CRITICAL ERROR: Page HTML is incomplete. Please reload."); return; }
+            if (!allInputs.length || !grossPensionInput || !increasePensionBtn || !decreasePensionBtn || !cancelClearBtn || !confirmClearBtn || !passwordInput || !logContainer || !showLogBtn) { console.error("CRITICAL ERROR: One or more required HTML elements are missing from the page."); showWarning("CRITICAL ERROR: Page HTML is incomplete. Please reload."); return; }
             
             // Initialize Arms UI
             if (armsSelect) {
@@ -1769,10 +1766,6 @@
             if (isSupabaseEnabled) { 
                 showLogBtn.addEventListener('click', () => {
                     passwordAction = 'show';
-                    openPasswordModal();
-                });
-                clearLogBtn.addEventListener('click', () => {
-                    passwordAction = 'clear';
                     openPasswordModal();
                 });
                 cancelClearBtn.addEventListener('click', closePasswordModal); 
@@ -1921,7 +1914,6 @@
                 });
 
             } else { 
-                clearLogBtn.style.display = 'none'; 
                 showLogBtn.style.display = 'none';
             }
             
