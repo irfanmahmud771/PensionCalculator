@@ -184,14 +184,14 @@
                             </div>
                              <div class="input-group md:col-span-2">
                                 <label for="name">Name</label>
-                                <input type="text" id="name" class="calc-input" placeholder="Full Name" maxlength="21" style="text-transform: uppercase;">
+                                <input type="text" id="name" class="calc-input" placeholder="Full Name" maxlength="21" inputmode="text" title="Numbers are not allowed" style="text-transform: uppercase;">
                             </div>
                          </div>
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div class="input-group">
                                 <label for="pak-no" id="lbl-pak-no">Pak No</label>
                                 <div class="flex gap-2">
-                                    <input type="text" id="pak-no" class="calc-input flex-grow" placeholder="e.g. 123456">
+                                    <input type="text" id="pak-no" class="calc-input flex-grow" placeholder="e.g. 123456" inputmode="numeric" maxlength="8" pattern="\d{1,8}" title="Enter up to 8 digits">
                                     <button type="button" id="btn-load-data" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded text-sm whitespace-nowrap transition-colors">
                                         Load Data
                                     </button>
@@ -1626,7 +1626,19 @@
             // --- 2. PAK NO BLUR LISTENER ---
             const pakNoInput = document.getElementById('pak-no');
             if (pakNoInput && dobInput) {
+                const sanitizePakNoInput = () => {
+                    const sanitizedValue = pakNoInput.value.replace(/\D/g, '').slice(0, 8);
+                    if (pakNoInput.value !== sanitizedValue) {
+                        pakNoInput.value = sanitizedValue;
+                    }
+                };
+
+                pakNoInput.addEventListener('input', sanitizePakNoInput);
+                pakNoInput.addEventListener('paste', () => {
+                    requestAnimationFrame(sanitizePakNoInput);
+                });
                 pakNoInput.addEventListener('blur', async () => {
+                    sanitizePakNoInput();
                     const pakNo = pakNoInput.value.trim();
                     
                     // If empty, disable DOB
@@ -1722,7 +1734,7 @@
             const nameInput = document.getElementById('name');
             if (nameInput) {
                 nameInput.addEventListener('input', (e) => {
-                    e.target.value = e.target.value.toUpperCase();
+                    e.target.value = e.target.value.replace(/\d/g, '').toUpperCase();
                 });
             }
 
