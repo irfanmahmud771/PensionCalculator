@@ -184,7 +184,7 @@
                             </div>
                              <div class="input-group md:col-span-2">
                                 <label for="name">Name</label>
-                                <input type="text" id="name" class="calc-input" placeholder="Full Name" maxlength="21" style="text-transform: uppercase;">
+                                <input type="text" id="name" class="calc-input" placeholder="Full Name" maxlength="21" inputmode="text" title="Numbers are not allowed" style="text-transform: uppercase;">
                             </div>
                          </div>
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1734,7 +1734,7 @@
             const nameInput = document.getElementById('name');
             if (nameInput) {
                 nameInput.addEventListener('input', (e) => {
-                    e.target.value = e.target.value.toUpperCase();
+                    e.target.value = e.target.value.replace(/\d/g, '').toUpperCase();
                 });
             }
 
