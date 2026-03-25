@@ -200,11 +200,12 @@
                             <div class="input-group">
                                 <label for="cnic">CNIC</label>
                                 <input type="text" id="cnic" class="calc-input" placeholder="00000-0000000-0" maxlength="15">
+                                <div id="cnic-error" class="text-red-600 text-xs mt-1" style="display: none;">Incomplete CNIC</div>
                             </div>
                          </div>
                         <div class="input-group">
                             <label for="account-no">Account No (IBAN)</label>
-                            <input type="text" id="account-no" class="calc-input" placeholder="PK...">
+                            <input type="text" id="account-no" class="calc-input" placeholder="PK..." maxlength="24">
                         </div>
                          <div class="input-group">
                             <label for="bank-branch">Bank & Branch</label>
@@ -263,6 +264,7 @@
                         <div class="input-group" id="grp-family-cnic" style="display: none;">
                             <label for="family-pensioner-cnic">Family Pensioner CNIC</label>
                             <input type="text" id="family-pensioner-cnic" class="calc-input" placeholder="00000-0000000-0" maxlength="15">
+                            <div id="family-cnic-error" class="text-red-600 text-xs mt-1" style="display: none;">Incomplete CNIC</div>
                         </div>
                         <div class="input-group" id="grp-family-relation" style="display: none;">
                             <label for="family-relation">Relation with Pensioner</label>
@@ -1265,6 +1267,9 @@
             document.getElementById('family-pensioner-cnic').value = data.familyCnic || '';
             document.getElementById('family-relation').value = data.familyRelation || 'Widow';
             document.getElementById('family-dob').value = data.familyDob || ''; // New field
+            document.getElementById('account-no').dispatchEvent(new Event('input'));
+            document.getElementById('cnic').dispatchEvent(new Event('input'));
+            document.getElementById('family-pensioner-cnic').dispatchEvent(new Event('input'));
 
             checkInputEnabling(); calculateAndDisplayAll();
             
@@ -1501,6 +1506,10 @@
                 grpFamilyCnic.style.display = 'block';
                 grpFamilyRelation.style.display = 'block';
                 if (grpFamilyDob) grpFamilyDob.style.display = 'block'; // SHOW DOB
+                const familyCnicInput = document.getElementById('family-pensioner-cnic');
+                const familyCnicError = document.getElementById('family-cnic-error');
+                const familyDigits = (familyCnicInput.value || '').replace(/\D/g, '').length;
+                if (familyCnicError) familyCnicError.style.display = familyDigits === 13 ? 'none' : 'block';
             } else {
                 grpFamilyName.style.display = 'none';
                 grpFamilyCnic.style.display = 'none';
@@ -1516,6 +1525,8 @@
                 if (famDob) famDob.value = '';
                 const famDobDisp = document.getElementById('family-dob-display');
                 if (famDobDisp) famDobDisp.textContent = '';
+                const familyCnicError = document.getElementById('family-cnic-error');
+                if (familyCnicError) familyCnicError.style.display = 'none';
             }
         }
 
@@ -1738,6 +1749,24 @@
                 });
             }
 
+            const accountNoInput = document.getElementById('account-no');
+            const enforceAccountNoFormat = (e) => {
+                let value = (e.target.value || '').toUpperCase().replace(/\s+/g, '');
+                value = value.replace(/[^A-Z0-9]/g, '');
+                if (value.startsWith('PK')) {
+                    value = `PK${value.substring(2)}`;
+                } else {
+                    value = `PK${value.replace(/^P?K?/g, '')}`;
+                }
+                e.target.value = value.substring(0, 24);
+            };
+            if (accountNoInput) {
+                accountNoInput.value = 'PK';
+                accountNoInput.addEventListener('focus', enforceAccountNoFormat);
+                accountNoInput.addEventListener('input', enforceAccountNoFormat);
+                accountNoInput.addEventListener('blur', enforceAccountNoFormat);
+            }
+
             // New Listener for Family Pensioner Name Uppercase
             const familyPensionerNameInput = document.getElementById('family-pensioner-name');
             if (familyPensionerNameInput) {
@@ -1757,17 +1786,39 @@
                 if (value.length >= 13) { formatted += '-' + value.substring(12, 13); } 
                 e.target.value = formatted;
             };
+            const getCNICDigitsCount = (value) => (value || '').replace(/\D/g, '').length;
+            const validateCNICField = (inputEl, errorEl, isRequired = true) => {
+                if (!inputEl || !errorEl) return true;
+                const digitCount = getCNICDigitsCount(inputEl.value);
+                const isValid = isRequired ? digitCount === 13 : digitCount === 0 || digitCount === 13;
+                errorEl.style.display = isValid ? 'none' : 'block';
+                return isValid;
+            };
 
             // Main CNIC Listener
-            if (cnicInput) { cnicInput.addEventListener('input', formatCNIC); }
+            const cnicError = document.getElementById('cnic-error');
+            if (cnicInput) {
+                cnicInput.addEventListener('input', (e) => {
+                    formatCNIC(e);
+                    validateCNICField(cnicInput, cnicError, true);
+                });
+                cnicInput.addEventListener('blur', () => validateCNICField(cnicInput, cnicError, true));
+            }
 
             // Family CNIC Listener
+            const familyCnicError = document.getElementById('family-cnic-error');
             const familyCnicInput = document.getElementById('family-pensioner-cnic');
             if (familyCnicInput) { 
                 familyCnicInput.addEventListener('input', (e) => {
                     formatCNIC(e);
+                    const isFamilyRequired = document.getElementById('family-pension')?.value === 'Yes';
+                    validateCNICField(familyCnicInput, familyCnicError, isFamilyRequired);
                     calculateAndDisplayAll(); // Trigger update for print preview
                 }); 
+                familyCnicInput.addEventListener('blur', () => {
+                    const isFamilyRequired = document.getElementById('family-pension')?.value === 'Yes';
+                    validateCNICField(familyCnicInput, familyCnicError, isFamilyRequired);
+                });
             }
 
             allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
