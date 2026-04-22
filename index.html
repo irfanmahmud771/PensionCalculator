@@ -734,6 +734,32 @@
             return (data && data.length > 0) ? data[0] : null;
         };
 
+        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 7) => {
+            const lines = doc.splitTextToSize(text, maxWidth);
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const words = line.split(' ');
+                const gaps = words.length - 1;
+                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const justifiedSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
+                let currentX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, currentX, y + (index * lineHeight));
+                    currentX += doc.getTextWidth(word);
+                    if (wordIndex < gaps) {
+                        currentX += justifiedSpaceWidth;
+                    }
+                });
+            });
+            return lines.length;
+        };
+
         const generateRestorationApplicationPdf = () => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
@@ -821,15 +847,15 @@
             doc.text('2.', left, y);
             const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
             const para2Width = pageWidth - (left + 12) - 20;
-            const para2LineCount = doc.splitTextToSize(para2, para2Width).length;
-            doc.text(para2, left + 12, y, { maxWidth: para2Width, align: 'justify' });
-            y += para2LineCount * 6 + 6;
+            const para2LineHeight = 7;
+            const para2LineCount = drawJustifiedParagraph(doc, para2, left + 12, y, para2Width, para2LineHeight);
+            y += para2LineCount * para2LineHeight + 7;
 
             doc.text('3.', left, y);
             doc.text('Submitted, please.', left + 12, y);
 
             y += 34;
-            const signatureX = pageWidth - 64;
+            const signatureX = pageWidth - 70;
             doc.text('Yours sincerely', signatureX, y);
             y += 30;
             doc.setFont('helvetica', 'bold');
@@ -840,7 +866,7 @@
             y += 7;
             doc.text(`Pak/${pakNo}`, signatureX, y);
             y += 7;
-            doc.text('Cell # ------------------------------', signatureX, y);
+            doc.text('Cell # ---------------------------', signatureX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
