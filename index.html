@@ -721,6 +721,32 @@
             });
         };
 
+        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 6) => {
+            const lines = doc.splitTextToSize(text, maxWidth);
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const words = line.split(' ');
+                const gaps = words.length - 1;
+                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const extraSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
+                let cursorX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, cursorX, y + (index * lineHeight));
+                    cursorX += doc.getTextWidth(word);
+                    if (wordIndex < gaps) {
+                        cursorX += extraSpaceWidth;
+                    }
+                });
+            });
+            return lines.length;
+        };
+
         const generateRestorationApplicationPdf = () => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
@@ -810,6 +836,7 @@
             const para2Width = pageWidth - (left + 12) - 20;
             const para2LineCount = doc.splitTextToSize(para2, para2Width).length;
             doc.text(para2, left + 12, y, { maxWidth: para2Width, align: 'justify' });
+            const para2LineCount = drawJustifiedParagraph(doc, para2, left + 12, y, pageWidth - (left + 12) - 20);
             y += para2LineCount * 6 + 6;
 
             doc.text('3.', left, y);
