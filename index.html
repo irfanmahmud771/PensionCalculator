@@ -615,7 +615,7 @@
 
     <script type="module">
         // --- MODIFIED IMPORT BLOCK ---
-        const { createClient } = window.supabase;
+        const createClient = window.supabase?.createClient;
         
         const SUPABASE_URL = "https://xyfibnqodbisyykjrrbs.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5ZmlibnFvZGJpc3l5a2pycmJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNTc1NjMsImV4cCI6MjA3ODYzMzU2M30.GodY0oqueaXq15tRYM1Lyaw5regYnPOg6v4aAaBPqgM";
@@ -723,97 +723,6 @@
                 timeZone: 'UTC'
             });
             return `${dayMonthText}, ${yearText}`;
-        };
-
-        const fetchLatestLogByPakNo = async (pakNo) => {
-            if (!supabaseClient || !pakNo) return null;
-            const { data, error } = await supabaseClient
-                .from('logs')
-                .select('*')
-                .eq('pak_no', pakNo)
-                .order('created_at', { ascending: false })
-                .limit(1);
-
-            if (error) throw error;
-            return (data && data.length > 0) ? data[0] : null;
-        };
-
-        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 7) => {
-            const lines = doc.splitTextToSize(text, maxWidth);
-            lines.forEach((line, index) => {
-                const isLastLine = index === lines.length - 1;
-                if (isLastLine || !line.includes(' ')) {
-                    doc.text(line, x, y + (index * lineHeight));
-                    return;
-                }
-
-                const words = line.split(' ');
-                const gaps = words.length - 1;
-                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
-                const justifiedSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
-                let currentX = x;
-
-                words.forEach((word, wordIndex) => {
-                    doc.text(word, currentX, y + (index * lineHeight));
-                    currentX += doc.getTextWidth(word);
-                    if (wordIndex < gaps) {
-                        currentX += justifiedSpaceWidth;
-                    }
-                });
-            });
-            return lines.length;
-        };
-
-        const buildUnderlineForWidth = (doc, targetWidth) => {
-            let underline = '';
-            while (doc.getTextWidth(underline) < targetWidth) {
-                underline += '_';
-            }
-            return underline;
-        };
-
-        const drawJustifiedParagraphWithHangingIndent = (doc, text, firstX, otherX, y, firstWidth, otherWidth, lineHeight = 7) => {
-            const words = text.split(/\s+/).filter(Boolean);
-            const lines = [];
-            let currentLine = '';
-
-            words.forEach((word) => {
-                const candidate = currentLine ? `${currentLine} ${word}` : word;
-                const lineIndex = lines.length;
-                const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
-                if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
-                    currentLine = candidate;
-                } else {
-                    lines.push(currentLine);
-                    currentLine = word;
-                }
-            });
-            if (currentLine) lines.push(currentLine);
-
-            lines.forEach((line, index) => {
-                const isLastLine = index === lines.length - 1;
-                const x = index === 0 ? firstX : otherX;
-                const maxWidth = index === 0 ? firstWidth : otherWidth;
-
-                if (isLastLine || !line.includes(' ')) {
-                    doc.text(line, x, y + (index * lineHeight));
-                    return;
-                }
-
-                const lineWords = line.split(' ');
-                const gaps = lineWords.length - 1;
-                const wordsWidth = lineWords.reduce((sum, lineWord) => sum + doc.getTextWidth(lineWord), 0);
-                const spaceWidth = (maxWidth - wordsWidth) / gaps;
-                let cursorX = x;
-
-                lineWords.forEach((lineWord, wordIndex) => {
-                    doc.text(lineWord, cursorX, y + (index * lineHeight));
-                    cursorX += doc.getTextWidth(lineWord);
-                    if (wordIndex < gaps) cursorX += spaceWidth;
-                });
-            });
-
-            return lines.length;
         };
 
         const fetchLatestLogByPakNo = async (pakNo) => {
@@ -1955,7 +1864,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const appWarning = document.getElementById('app-warning');
             function showWarning(message) { if (appWarning) { appWarning.textContent = message; appWarning.style.display = 'block'; } console.warn(message); }
-            if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) { showWarning("Supabase is not configured. Online features are disabled. Please paste your URL and Key into index.html."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else { try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); if (!supabaseClient) { throw new Error("Supabase client failed to initialize."); } isSupabaseEnabled = true; console.log("Supabase initialized successfully."); } catch (e) { console.error("Error initializing Supabase:", e); showWarning(`Error initializing online features: ${e.message}. App is in offline mode.`); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } }
+            if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) { showWarning("Supabase is not configured. Online features are disabled. Please paste your URL and Key into index.html."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else if (!createClient) { showWarning("Supabase library failed to load. Online features are disabled. Please refresh and check internet connection."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else { try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); if (!supabaseClient) { throw new Error("Supabase client failed to initialize."); } isSupabaseEnabled = true; console.log("Supabase initialized successfully."); } catch (e) { console.error("Error initializing Supabase:", e); showWarning(`Error initializing online features: ${e.message}. App is in offline mode.`); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } }
             
             const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const printRestorationBtn = document.getElementById('print-restoration-btn'); const cnicInput = document.getElementById('cnic');
             const showLogBtn = document.getElementById('show-log-btn');
