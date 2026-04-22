@@ -784,12 +784,13 @@
             y += 14;
             doc.text('Sir,', left, y);
 
-            y += 20;
+            const sectionGap = 16;
+            y += sectionGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
             doc.text('RESTORATION OF COMMUTED PORTION OF PENSION', pageWidth / 2, y, { align: 'center' });
 
-            y += 14;
+            y += sectionGap;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
             doc.text('1.', left, y);
@@ -832,6 +833,9 @@
             y += 18;
             doc.text('2.', left, y);
             const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const para2Width = pageWidth - (left + 12) - 20;
+            const para2LineCount = doc.splitTextToSize(para2, para2Width).length;
+            doc.text(para2, left + 12, y, { maxWidth: para2Width, align: 'justify' });
             const para2LineCount = drawJustifiedParagraph(doc, para2, left + 12, y, pageWidth - (left + 12) - 20);
             y += para2LineCount * 6 + 6;
 
