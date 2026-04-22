@@ -713,12 +713,107 @@
 
         const formatDateLong = (dateObj) => {
             if (!dateObj) return '';
-            return dateObj.toLocaleDateString('en-GB', {
+            const dayMonthText = dateObj.toLocaleDateString('en-GB', {
                 day: 'numeric',
                 month: 'long',
+                timeZone: 'UTC'
+            });
+            const yearText = dateObj.toLocaleDateString('en-GB', {
                 year: 'numeric',
                 timeZone: 'UTC'
             });
+            return `${dayMonthText}, ${yearText}`;
+        };
+
+        const fetchLatestLogByPakNo = async (pakNo) => {
+            if (!supabaseClient || !pakNo) return null;
+            const { data, error } = await supabaseClient
+                .from('logs')
+                .select('*')
+                .eq('pak_no', pakNo)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error) throw error;
+            return (data && data.length > 0) ? data[0] : null;
+        };
+
+        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 7) => {
+            const lines = doc.splitTextToSize(text, maxWidth);
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const words = line.split(' ');
+                const gaps = words.length - 1;
+                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const justifiedSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
+                let currentX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, currentX, y + (index * lineHeight));
+                    currentX += doc.getTextWidth(word);
+                    if (wordIndex < gaps) {
+                        currentX += justifiedSpaceWidth;
+                    }
+                });
+            });
+            return lines.length;
+        };
+
+        const buildUnderlineForWidth = (doc, targetWidth) => {
+            let underline = '';
+            while (doc.getTextWidth(underline) < targetWidth) {
+                underline += '_';
+            }
+            return underline;
+        };
+
+        const drawJustifiedParagraphWithHangingIndent = (doc, text, firstX, otherX, y, firstWidth, otherWidth, lineHeight = 7) => {
+            const words = text.split(/\s+/).filter(Boolean);
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach((word) => {
+                const candidate = currentLine ? `${currentLine} ${word}` : word;
+                const lineIndex = lines.length;
+                const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
+                if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
+                    currentLine = candidate;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                const x = index === 0 ? firstX : otherX;
+                const maxWidth = index === 0 ? firstWidth : otherWidth;
+
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const lineWords = line.split(' ');
+                const gaps = lineWords.length - 1;
+                const wordsWidth = lineWords.reduce((sum, lineWord) => sum + doc.getTextWidth(lineWord), 0);
+                const spaceWidth = (maxWidth - wordsWidth) / gaps;
+                let cursorX = x;
+
+                lineWords.forEach((lineWord, wordIndex) => {
+                    doc.text(lineWord, cursorX, y + (index * lineHeight));
+                    cursorX += doc.getTextWidth(lineWord);
+                    if (wordIndex < gaps) cursorX += spaceWidth;
+                });
+            });
+
+            return lines.length;
         };
 
         const fetchLatestLogByPakNo = async (pakNo) => {
