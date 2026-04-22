@@ -760,6 +760,58 @@
             return lines.length;
         };
 
+        const buildUnderlineForWidth = (doc, targetWidth) => {
+            let underline = '';
+            while (doc.getTextWidth(underline) < targetWidth) {
+                underline += '_';
+            }
+            return underline;
+        };
+
+        const drawJustifiedParagraphWithHangingIndent = (doc, text, firstX, otherX, y, firstWidth, otherWidth, lineHeight = 7) => {
+            const words = text.split(/\s+/).filter(Boolean);
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach((word) => {
+                const candidate = currentLine ? `${currentLine} ${word}` : word;
+                const lineIndex = lines.length;
+                const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
+                if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
+                    currentLine = candidate;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                const x = index === 0 ? firstX : otherX;
+                const maxWidth = index === 0 ? firstWidth : otherWidth;
+
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const lineWords = line.split(' ');
+                const gaps = lineWords.length - 1;
+                const wordsWidth = lineWords.reduce((sum, lineWord) => sum + doc.getTextWidth(lineWord), 0);
+                const spaceWidth = (maxWidth - wordsWidth) / gaps;
+                let cursorX = x;
+
+                lineWords.forEach((lineWord, wordIndex) => {
+                    doc.text(lineWord, cursorX, y + (index * lineHeight));
+                    cursorX += doc.getTextWidth(lineWord);
+                    if (wordIndex < gaps) cursorX += spaceWidth;
+                });
+            });
+
+            return lines.length;
+        };
+
         const generateRestorationApplicationPdf = () => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
@@ -837,11 +889,13 @@
             const addressWidth = doc.getTextWidth(addressText);
             const spaceWidth = doc.getTextWidth(' ');
             doc.text(addressText, addressX, y);
-            doc.setLineDashPattern([1, 1], 0);
-            doc.line(addressX + addressWidth + (spaceWidth * 3), y - 1, lineEndX, y - 1);
+            const line1StartX = addressX + addressWidth + (spaceWidth * 3);
+            const line2StartX = addressX + addressWidth;
+            const addressLine1Text = buildUnderlineForWidth(doc, lineEndX - line1StartX);
+            const addressLine2Text = buildUnderlineForWidth(doc, lineEndX - line2StartX);
+            doc.text(addressLine1Text, line1StartX, y);
             y += 10;
-            doc.line(addressX + addressWidth, y - 1, lineEndX, y - 1);
-            doc.setLineDashPattern([], 0);
+            doc.text(addressLine2Text, line2StartX, y);
 
             y += 18;
             doc.text('2.', left, y);
@@ -851,14 +905,16 @@
             const para2Width = pageWidth - para2FirstLineX - 20;
             const para2RemainingWidth = pageWidth - para2RemainingLineX - 20;
             const para2LineHeight = 7;
-            const para2SplitLines = doc.splitTextToSize(para2, para2Width);
-            doc.text(para2SplitLines[0], para2FirstLineX, y);
-            let para2LineCount = 1;
-            if (para2SplitLines.length > 1) {
-                const para2RemainingText = para2SplitLines.slice(1).join(' ');
-                const para2RemainingLineCount = drawJustifiedParagraph(doc, para2RemainingText, para2RemainingLineX, y + para2LineHeight, para2RemainingWidth, para2LineHeight);
-                para2LineCount += para2RemainingLineCount;
-            }
+            const para2LineCount = drawJustifiedParagraphWithHangingIndent(
+                doc,
+                para2,
+                para2FirstLineX,
+                para2RemainingLineX,
+                y,
+                para2Width,
+                para2RemainingWidth,
+                para2LineHeight
+            );
             y += para2LineCount * para2LineHeight + 7;
 
             doc.text('3.', left, y);
@@ -876,7 +932,7 @@
             y += 7;
             doc.text(`Pak/${pakNo}`, signatureX, y);
             y += 7;
-            doc.text('Cell # ---------------------------', signatureX, y);
+            doc.text('Cell # __________________________', signatureX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
