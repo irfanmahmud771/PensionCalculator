@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <title>Pension Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -294,6 +295,10 @@
                     <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
                         <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
                         Print Pension Slip
+                    </button>
+                    <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
+                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
+                        Print Restoration Application
                     </button>
                     <button id="install-app-btn" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
                         Install App (Windows/Android)
@@ -704,6 +709,104 @@
                 return `${parts[2]}-${parts[1]}-${parts[0]}`;
             }
             return dateString;
+        };
+
+        const formatDateLong = (dateObj) => {
+            if (!dateObj) return '';
+            return dateObj.toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: 'UTC'
+            });
+        };
+
+        const generateRestorationApplicationPdf = () => {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "PDF library is not loaded. Please refresh and try again.");
+                }
+                return;
+            }
+
+            const rank = document.getElementById('rank')?.value || '____________';
+            const name = (document.getElementById('name')?.value || '____________').toUpperCase();
+            const pakNo = document.getElementById('pak-no')?.value || '____________';
+            const dobDate = parseDate(document.getElementById('dob')?.value);
+            const sosDate = parseDate(document.getElementById('sos')?.value);
+            const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
+            const dobText = dobDate ? formatDateDisplay(dobDate) : '____________';
+            const sosText = sosDate ? formatDateDisplay(sosDate) : '____________';
+            const todayText = formatDateLong(new Date());
+
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const left = 22;
+            let y = 24;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.text(`PAF/Pak No/PF ${pakNo}`, left, y);
+            doc.text(todayText, pageWidth - 22, y, { align: 'right' });
+
+            y += 16;
+            doc.text('Dte of Pension', left, y);
+            y += 7;
+            doc.text('Air Headquarters, Peshawar', left, y);
+
+            y += 14;
+            doc.text('Sir,', left, y);
+
+            y += 20;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.text('RESTORATION OF COMMUTED PORTION OF PENSION', pageWidth / 2, y, { align: 'center' });
+
+            y += 14;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.text('1.', left, y);
+            doc.text('Appended below please find data for restoration of commuted portion of pension:-', left + 12, y);
+
+            y += 14;
+            doc.text(`Rank  ${rank}`, left + 12, y);
+            doc.text(`Name  ${name}`, left + 86, y);
+            y += 10;
+            doc.text(`Pak No  ${pakNo}`, left + 12, y);
+            doc.text(`Date of Birth  ${dobText}`, left + 86, y);
+            y += 10;
+            doc.text(`Date of SOS  ${sosText}`, left + 12, y);
+            doc.text(`Date of Restoration  ${restorationDateText}`, left + 86, y);
+            y += 10;
+            doc.text('Address  ------------------------------', left + 12, y);
+            y += 7;
+            doc.text('          ------------------------------', left + 12, y);
+
+            y += 18;
+            doc.text('2.', left, y);
+            const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const lines = doc.splitTextToSize(para2, pageWidth - (left + 12) - 20);
+            doc.text(lines, left + 12, y);
+            y += lines.length * 6 + 6;
+
+            doc.text('3.', left, y);
+            doc.text('Submitted, please.', left + 12, y);
+
+            y += 34;
+            doc.text('Yours sincerely', pageWidth - 54, y);
+            y += 30;
+            doc.setFont('helvetica', 'bold');
+            doc.text(`(${name})`, pageWidth - 54, y);
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${rank} (Rtd)`, pageWidth - 54, y);
+            y += 7;
+            doc.text(`Pak/${pakNo}`, pageWidth - 54, y);
+            y += 7;
+            doc.text('Cell # ------------------------------', pageWidth - 54, y);
+
+            doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
         
         const formatVisitCount = (num) => {
@@ -1625,7 +1728,7 @@
             function showWarning(message) { if (appWarning) { appWarning.textContent = message; appWarning.style.display = 'block'; } console.warn(message); }
             if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) { showWarning("Supabase is not configured. Online features are disabled. Please paste your URL and Key into index.html."); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } else { try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); if (!supabaseClient) { throw new Error("Supabase client failed to initialize."); } isSupabaseEnabled = true; console.log("Supabase initialized successfully."); } catch (e) { console.error("Error initializing Supabase:", e); showWarning(`Error initializing online features: ${e.message}. App is in offline mode.`); isSupabaseEnabled = false; document.getElementById('visit-counter-wrapper').style.display = 'none'; document.getElementById('log-wrapper').style.display = 'none'; } }
             
-            const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const cnicInput = document.getElementById('cnic');
+            const allInputs = document.querySelectorAll('.calc-input'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const cancelClearBtn = document.getElementById('cancel-clear-btn'); const confirmClearBtn = document.getElementById('confirm-clear-btn'); const passwordInput = document.getElementById('password-input'); const logContainer = document.getElementById('log-container'); const printBtn = document.getElementById('print-btn'); const printRestorationBtn = document.getElementById('print-restoration-btn'); const cnicInput = document.getElementById('cnic');
             const showLogBtn = document.getElementById('show-log-btn');
             const sosInput = document.getElementById('sos');
             const armsSelect = document.getElementById('arms');
@@ -1825,6 +1928,7 @@
             grossPensionInput.addEventListener('input', formatGrossPensionInput);
             increasePensionBtn.addEventListener('mousedown', () => startPress(1)); decreasePensionBtn.addEventListener('mousedown', () => startPress(-1)); document.addEventListener('mouseup', stopPress); document.addEventListener('mouseleave', stopPress); increasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(1); }); decreasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(-1); }); document.addEventListener('touchend', stopPress); document.addEventListener('touchcancel', stopPress);
             if (printBtn) { printBtn.addEventListener('click', () => { window.print(); }); }
+            if (printRestorationBtn) { printRestorationBtn.addEventListener('click', generateRestorationApplicationPdf); }
             
             if (isSupabaseEnabled) { 
                 showLogBtn.addEventListener('click', () => {
