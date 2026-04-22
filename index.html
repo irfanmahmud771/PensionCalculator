@@ -839,16 +839,26 @@
             doc.text(addressText, addressX, y);
             doc.setLineDashPattern([1, 1], 0);
             doc.line(addressX + addressWidth + (spaceWidth * 3), y - 1, lineEndX, y - 1);
-            y += 7;
+            y += 10;
             doc.line(addressX + addressWidth, y - 1, lineEndX, y - 1);
             doc.setLineDashPattern([], 0);
 
             y += 18;
             doc.text('2.', left, y);
             const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
-            const para2Width = pageWidth - (left + 12) - 20;
+            const para2FirstLineX = left + 12;
+            const para2RemainingLineX = left;
+            const para2Width = pageWidth - para2FirstLineX - 20;
+            const para2RemainingWidth = pageWidth - para2RemainingLineX - 20;
             const para2LineHeight = 7;
-            const para2LineCount = drawJustifiedParagraph(doc, para2, left + 12, y, para2Width, para2LineHeight);
+            const para2SplitLines = doc.splitTextToSize(para2, para2Width);
+            doc.text(para2SplitLines[0], para2FirstLineX, y);
+            let para2LineCount = 1;
+            if (para2SplitLines.length > 1) {
+                const para2RemainingText = para2SplitLines.slice(1).join(' ');
+                const para2RemainingLineCount = drawJustifiedParagraph(doc, para2RemainingText, para2RemainingLineX, y + para2LineHeight, para2RemainingWidth, para2LineHeight);
+                para2LineCount += para2RemainingLineCount;
+            }
             y += para2LineCount * para2LineHeight + 7;
 
             doc.text('3.', left, y);
