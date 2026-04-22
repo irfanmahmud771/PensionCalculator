@@ -899,7 +899,7 @@
 
             y += 18;
             doc.text('2.', left, y);
-            const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const para2 = 'It is, therefore, requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
             const para2FirstLineX = left + 12;
             const para2RemainingLineX = left;
             const para2Width = pageWidth - para2FirstLineX - 20;
@@ -932,7 +932,13 @@
             y += 7;
             doc.text(`Pak/${pakNo}`, signatureX, y);
             y += 7;
-            doc.text('Cell # __________________________', signatureX, y);
+            const cellLabel = 'Cell # ';
+            const cellLabelWidth = doc.getTextWidth(cellLabel);
+            const cellLineStartX = signatureX + cellLabelWidth;
+            const cellLineEndX = pageWidth - 20;
+            const cellUnderline = buildUnderlineForWidth(doc, cellLineEndX - cellLineStartX);
+            doc.text(cellLabel, signatureX, y);
+            doc.text(cellUnderline, cellLineStartX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
