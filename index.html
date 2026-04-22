@@ -721,6 +721,97 @@
             });
         };
 
+        const fetchLatestLogByPakNo = async (pakNo) => {
+            if (!supabaseClient || !pakNo) return null;
+            const { data, error } = await supabaseClient
+                .from('logs')
+                .select('*')
+                .eq('pak_no', pakNo)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (error) throw error;
+            return (data && data.length > 0) ? data[0] : null;
+        };
+
+        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 7) => {
+            const lines = doc.splitTextToSize(text, maxWidth);
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const words = line.split(' ');
+                const gaps = words.length - 1;
+                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const justifiedSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
+                let currentX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, currentX, y + (index * lineHeight));
+                    currentX += doc.getTextWidth(word);
+                    if (wordIndex < gaps) {
+                        currentX += justifiedSpaceWidth;
+                    }
+                });
+            });
+            return lines.length;
+        };
+
+        const buildUnderlineForWidth = (doc, targetWidth) => {
+            let underline = '';
+            while (doc.getTextWidth(underline) < targetWidth) {
+                underline += '_';
+            }
+            return underline;
+        };
+
+        const drawJustifiedParagraphWithHangingIndent = (doc, text, firstX, otherX, y, firstWidth, otherWidth, lineHeight = 7) => {
+            const words = text.split(/\s+/).filter(Boolean);
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach((word) => {
+                const candidate = currentLine ? `${currentLine} ${word}` : word;
+                const lineIndex = lines.length;
+                const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
+                if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
+                    currentLine = candidate;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            });
+            if (currentLine) lines.push(currentLine);
+
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                const x = index === 0 ? firstX : otherX;
+                const maxWidth = index === 0 ? firstWidth : otherWidth;
+
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const lineWords = line.split(' ');
+                const gaps = lineWords.length - 1;
+                const wordsWidth = lineWords.reduce((sum, lineWord) => sum + doc.getTextWidth(lineWord), 0);
+                const spaceWidth = (maxWidth - wordsWidth) / gaps;
+                let cursorX = x;
+
+                lineWords.forEach((lineWord, wordIndex) => {
+                    doc.text(lineWord, cursorX, y + (index * lineHeight));
+                    cursorX += doc.getTextWidth(lineWord);
+                    if (wordIndex < gaps) cursorX += spaceWidth;
+                });
+            });
+
+            return lines.length;
+        };
+
         const generateRestorationApplicationPdf = () => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
@@ -747,7 +838,7 @@
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
-            doc.text(`PAF/Pak No/PF ${pakNo}`, left, y);
+            doc.text(`PAF/${pakNo}/PF`, left, y);
             doc.text(todayText, pageWidth - 22, y, { align: 'right' });
 
             y += 16;
@@ -758,53 +849,96 @@
             y += 14;
             doc.text('Sir,', left, y);
 
-            y += 20;
+            const sectionGap = 16;
+            y += sectionGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
             doc.text('RESTORATION OF COMMUTED PORTION OF PENSION', pageWidth / 2, y, { align: 'center' });
 
-            y += 14;
+            y += sectionGap;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
             doc.text('1.', left, y);
             doc.text('Appended below please find data for restoration of commuted portion of pension:-', left + 12, y);
 
             y += 14;
-            doc.text(`Rank  ${rank}`, left + 12, y);
-            doc.text(`Name  ${name}`, left + 86, y);
+            doc.text('Rank  ', left + 12, y);
+            doc.text('Name  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${rank}`, left + 12 + doc.getTextWidth('Rank  '), y);
+            doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text(`Pak No  ${pakNo}`, left + 12, y);
-            doc.text(`Date of Birth  ${dobText}`, left + 86, y);
+            doc.text('Pak No  ', left + 12, y);
+            doc.text('Date of Birth  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth('Pak No  '), y);
+            doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text(`Date of SOS  ${sosText}`, left + 12, y);
-            doc.text(`Date of Restoration  ${restorationDateText}`, left + 86, y);
+            doc.text('Date of SOS  ', left + 12, y);
+            doc.text('Date of Restoration  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${sosText}`, left + 12 + doc.getTextWidth('Date of SOS  '), y);
+            doc.text(`${restorationDateText}`, left + 86 + doc.getTextWidth('Date of Restoration  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text('Address  ------------------------------', left + 12, y);
-            y += 7;
-            doc.text('          ------------------------------', left + 12, y);
+            const addressX = left + 12;
+            const addressText = 'Address';
+            const lineEndX = pageWidth - 20;
+            const addressWidth = doc.getTextWidth(addressText);
+            const spaceWidth = doc.getTextWidth(' ');
+            doc.text(addressText, addressX, y);
+            const line1StartX = addressX + addressWidth + (spaceWidth * 3);
+            const line2StartX = addressX + addressWidth;
+            const addressLine1Text = buildUnderlineForWidth(doc, lineEndX - line1StartX);
+            const addressLine2Text = buildUnderlineForWidth(doc, lineEndX - line2StartX);
+            doc.text(addressLine1Text, line1StartX, y);
+            y += 10;
+            doc.text(addressLine2Text, line2StartX, y);
 
             y += 18;
             doc.text('2.', left, y);
-            const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
-            const lines = doc.splitTextToSize(para2, pageWidth - (left + 12) - 20);
-            doc.text(lines, left + 12, y);
-            y += lines.length * 6 + 6;
+            const para2 = 'It is, therefore, requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const para2FirstLineX = left + 12;
+            const para2RemainingLineX = left;
+            const para2Width = pageWidth - para2FirstLineX - 20;
+            const para2RemainingWidth = pageWidth - para2RemainingLineX - 20;
+            const para2LineHeight = 7;
+            const para2LineCount = drawJustifiedParagraphWithHangingIndent(
+                doc,
+                para2,
+                para2FirstLineX,
+                para2RemainingLineX,
+                y,
+                para2Width,
+                para2RemainingWidth,
+                para2LineHeight
+            );
+            y += para2LineCount * para2LineHeight + 7;
 
             doc.text('3.', left, y);
             doc.text('Submitted, please.', left + 12, y);
 
             y += 34;
-            doc.text('Yours sincerely', pageWidth - 54, y);
+            const signatureX = pageWidth - 70;
+            doc.text('Yours sincerely', signatureX, y);
             y += 30;
             doc.setFont('helvetica', 'bold');
-            doc.text(`(${name})`, pageWidth - 54, y);
+            doc.text(`(${name})`, signatureX, y);
             y += 7;
             doc.setFont('helvetica', 'normal');
-            doc.text(`${rank} (Rtd)`, pageWidth - 54, y);
+            doc.text(`${rank} (Rtd)`, signatureX, y);
             y += 7;
-            doc.text(`Pak/${pakNo}`, pageWidth - 54, y);
+            doc.text(`Pak/${pakNo}`, signatureX, y);
             y += 7;
-            doc.text('Cell # ------------------------------', pageWidth - 54, y);
+            const cellLabel = 'Cell # ';
+            const cellLabelWidth = doc.getTextWidth(cellLabel);
+            const cellLineStartX = signatureX + cellLabelWidth;
+            const cellLineEndX = pageWidth - 20;
+            const cellUnderline = buildUnderlineForWidth(doc, cellLineEndX - cellLineStartX);
+            doc.text(cellLabel, signatureX, y);
+            doc.text(cellUnderline, cellLineStartX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
@@ -1764,14 +1898,7 @@
                     // Only check if Supabase is enabled
                     if (isSupabaseEnabled) {
                         try {
-                            const { data, error } = await supabaseClient
-                                .from('logs')
-                                .select('pak_no')
-                                .eq('pak_no', pakNo)
-                                .limit(1)
-                                .maybeSingle();
-
-                            if (error) throw error;
+                            const data = await fetchLatestLogByPakNo(pakNo);
 
                             if (data) {
                                 // Exists
@@ -1969,15 +2096,7 @@
                         btnLoadData.textContent = "Loading...";
 
                         try {
-                            const { data, error } = await supabaseClient
-                                .from('logs')
-                                .select('*')
-                                .eq('pak_no', pakNo)
-                                .order('created_at', { ascending: false })
-                                .limit(1)
-                                .maybeSingle();
-
-                            if (error) throw error;
+                            const data = await fetchLatestLogByPakNo(pakNo);
 
                             if (!data) {
                                 openMessageModal("No Data Found", "No Data Found. Enter Now.");
