@@ -721,6 +721,32 @@
             });
         };
 
+        const drawJustifiedParagraph = (doc, text, x, y, maxWidth, lineHeight = 6) => {
+            const lines = doc.splitTextToSize(text, maxWidth);
+            lines.forEach((line, index) => {
+                const isLastLine = index === lines.length - 1;
+                if (isLastLine || !line.includes(' ')) {
+                    doc.text(line, x, y + (index * lineHeight));
+                    return;
+                }
+
+                const words = line.split(' ');
+                const gaps = words.length - 1;
+                const textWithoutSpacesWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const extraSpaceWidth = (maxWidth - textWithoutSpacesWidth) / gaps;
+                let cursorX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, cursorX, y + (index * lineHeight));
+                    cursorX += doc.getTextWidth(word);
+                    if (wordIndex < gaps) {
+                        cursorX += extraSpaceWidth;
+                    }
+                });
+            });
+            return lines.length;
+        };
+
         const generateRestorationApplicationPdf = () => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
@@ -747,7 +773,7 @@
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
-            doc.text(`PAF/Pak No/PF ${pakNo}`, left, y);
+            doc.text(`PAF/${pakNo}/PF`, left, y);
             doc.text(todayText, pageWidth - 22, y, { align: 'right' });
 
             y += 16;
@@ -770,41 +796,61 @@
             doc.text('Appended below please find data for restoration of commuted portion of pension:-', left + 12, y);
 
             y += 14;
-            doc.text(`Rank  ${rank}`, left + 12, y);
-            doc.text(`Name  ${name}`, left + 86, y);
+            doc.text('Rank  ', left + 12, y);
+            doc.text('Name  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${rank}`, left + 12 + doc.getTextWidth('Rank  '), y);
+            doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text(`Pak No  ${pakNo}`, left + 12, y);
-            doc.text(`Date of Birth  ${dobText}`, left + 86, y);
+            doc.text('Pak No  ', left + 12, y);
+            doc.text('Date of Birth  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth('Pak No  '), y);
+            doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text(`Date of SOS  ${sosText}`, left + 12, y);
-            doc.text(`Date of Restoration  ${restorationDateText}`, left + 86, y);
+            doc.text('Date of SOS  ', left + 12, y);
+            doc.text('Date of Restoration  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${sosText}`, left + 12 + doc.getTextWidth('Date of SOS  '), y);
+            doc.text(`${restorationDateText}`, left + 86 + doc.getTextWidth('Date of Restoration  '), y);
+            doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text('Address  ------------------------------', left + 12, y);
+            const addressX = left + 12;
+            const addressText = 'Address';
+            const lineEndX = pageWidth - 20;
+            const addressWidth = doc.getTextWidth(addressText);
+            const spaceWidth = doc.getTextWidth(' ');
+            doc.text(addressText, addressX, y);
+            doc.setLineDashPattern([1, 1], 0);
+            doc.line(addressX + addressWidth + (spaceWidth * 3), y - 1, lineEndX, y - 1);
             y += 7;
-            doc.text('          ------------------------------', left + 12, y);
+            doc.line(addressX + addressWidth, y - 1, lineEndX, y - 1);
+            doc.setLineDashPattern([], 0);
 
             y += 18;
             doc.text('2.', left, y);
             const para2 = 'It is therefore requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
-            const lines = doc.splitTextToSize(para2, pageWidth - (left + 12) - 20);
-            doc.text(lines, left + 12, y);
-            y += lines.length * 6 + 6;
+            const para2LineCount = drawJustifiedParagraph(doc, para2, left + 12, y, pageWidth - (left + 12) - 20);
+            y += para2LineCount * 6 + 6;
 
             doc.text('3.', left, y);
             doc.text('Submitted, please.', left + 12, y);
 
             y += 34;
-            doc.text('Yours sincerely', pageWidth - 54, y);
+            const signatureX = pageWidth - 64;
+            doc.text('Yours sincerely', signatureX, y);
             y += 30;
             doc.setFont('helvetica', 'bold');
-            doc.text(`(${name})`, pageWidth - 54, y);
+            doc.text(`(${name})`, signatureX, y);
             y += 7;
             doc.setFont('helvetica', 'normal');
-            doc.text(`${rank} (Rtd)`, pageWidth - 54, y);
+            doc.text(`${rank} (Rtd)`, signatureX, y);
             y += 7;
-            doc.text(`Pak/${pakNo}`, pageWidth - 54, y);
+            doc.text(`Pak/${pakNo}`, signatureX, y);
             y += 7;
-            doc.text('Cell # ------------------------------', pageWidth - 54, y);
+            doc.text('Cell # ------------------------------', signatureX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
