@@ -715,12 +715,10 @@
             if (!dateObj) return '';
             const dayMonthText = dateObj.toLocaleDateString('en-GB', {
                 day: 'numeric',
-                month: 'long',
-                timeZone: 'UTC'
+                month: 'long'
             });
             const yearText = dateObj.toLocaleDateString('en-GB', {
-                year: 'numeric',
-                timeZone: 'UTC'
+                year: 'numeric'
             });
             return `${dayMonthText}, ${yearText}`;
         };
