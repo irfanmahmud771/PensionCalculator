@@ -293,7 +293,7 @@
                 
                 <div class="text-center mb-4">
                     <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
+                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         Print Pension Slip
                     </button>
                     <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
@@ -1726,9 +1726,12 @@
         }
 
         function checkInputEnabling() {
-            const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension');
+            const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const printBtn = document.getElementById('print-btn'); const printRestorationBtn = document.getElementById('print-restoration-btn');
             const dobFilled = dobInput.value !== ''; const doeFilled = doeInput.value !== ''; const sosFilled = sosInput.value !== ''; const grossPensionFilled = grossPensionInput.value !== '' && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0;
             doeInput.disabled = !dobFilled; sosInput.disabled = !(dobFilled && doeFilled); grossPensionInput.disabled = !(dobFilled && doeFilled && sosFilled); increasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); decreasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); tkAwardInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled); familyPensionInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled);
+            const hasCalculationData = dobFilled && doeFilled && sosFilled && grossPensionFilled;
+            if (printBtn) printBtn.disabled = !hasCalculationData;
+            if (printRestorationBtn) printRestorationBtn.disabled = !hasCalculationData;
             if (doeInput.disabled) { doeInput.value = ''; document.getElementById('doe-display').textContent = ''; } if (sosInput.disabled) { sosInput.value = ''; document.getElementById('sos-display').textContent = ''; } if (grossPensionInput.disabled) grossPensionInput.value = ''; if (tkAwardInput.disabled) tkAwardInput.value = 'No'; if (familyPensionInput.disabled) familyPensionInput.value = 'No';
             
             // New Logic for Family Pensioner Name visibility in Input Form
