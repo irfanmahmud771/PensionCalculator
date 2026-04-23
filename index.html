@@ -293,7 +293,7 @@
                 
                 <div class="text-center mb-4">
                     <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
+                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         Print Pension Slip
                     </button>
                     <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
@@ -825,7 +825,16 @@
 
             const rank = document.getElementById('rank')?.value || '____________';
             const name = (document.getElementById('name')?.value || '____________').toUpperCase();
+            const familyPensionerName = (document.getElementById('family-pensioner-name')?.value || '____________').toUpperCase();
             const pakNo = document.getElementById('pak-no')?.value || '____________';
+            const arm = document.getElementById('arms')?.value || 'PAF';
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const familyRelation = document.getElementById('family-relation')?.value || 'Widow';
+            const signatureName = isFamilyPension ? familyPensionerName : name;
+            const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
+            const isArmyOrNavy = arm === 'Army' || arm === 'Navy';
+            const serviceNumberLabel = isArmyOrNavy ? 'Service No  ' : 'Pak No  ';
+            const signatureServiceNumber = isArmyOrNavy ? `Service No ${pakNo}` : `Pak/${pakNo}`;
             const dobDate = parseDate(document.getElementById('dob')?.value);
             const sosDate = parseDate(document.getElementById('sos')?.value);
             const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
@@ -840,13 +849,13 @@
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
-            doc.text(`PAF/${pakNo}/PF`, left, y);
+            doc.text(`${servicePrefix}/${pakNo}/PF`, left, y);
             doc.text(todayText, pageWidth - 22, y, { align: 'right' });
 
             y += 16;
-            doc.text('Dte of Pension', left, y);
+            doc.text('____________________', left, y);
             y += 7;
-            doc.text('Air Headquarters, Peshawar', left, y);
+            doc.text('____________________', left, y);
 
             y += 14;
             doc.text('Sir,', left, y);
@@ -855,7 +864,10 @@
             y += sectionGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
-            doc.text('RESTORATION OF COMMUTED PORTION OF PENSION', pageWidth / 2, y, { align: 'center' });
+            const headingText = isFamilyPension
+                ? 'RESTORATION OF COMMUTED PORTION OF FAMILY PENSION'
+                : 'RESTORATION OF COMMUTED PORTION OF PENSION';
+            doc.text(headingText, pageWidth / 2, y, { align: 'center' });
 
             y += sectionGap;
             doc.setFont('helvetica', 'normal');
@@ -871,10 +883,10 @@
             doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
             doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text('Pak No  ', left + 12, y);
+            doc.text(serviceNumberLabel, left + 12, y);
             doc.text('Date of Birth  ', left + 86, y);
             doc.setFont('helvetica', 'bold');
-            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth('Pak No  '), y);
+            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth(serviceNumberLabel), y);
             doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
             doc.setFont('helvetica', 'normal');
             y += 10;
@@ -901,7 +913,7 @@
 
             y += 18;
             doc.text('2.', left, y);
-            const para2 = 'It is, therefore, requested that my commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const para2 = 'It is, therefore, requested that commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
             const para2FirstLineX = left + 12;
             const para2RemainingLineX = left;
             const para2Width = pageWidth - para2FirstLineX - 20;
@@ -927,12 +939,16 @@
             doc.text('Yours sincerely', signatureX, y);
             y += 30;
             doc.setFont('helvetica', 'bold');
-            doc.text(`(${name})`, signatureX, y);
+            doc.text(`(${signatureName})`, signatureX, y);
             y += 7;
             doc.setFont('helvetica', 'normal');
+            if (isFamilyPension) {
+                doc.text(`${familyRelation} of`, signatureX, y);
+                y += 7;
+            }
             doc.text(`${rank} (Rtd)`, signatureX, y);
             y += 7;
-            doc.text(`Pak/${pakNo}`, signatureX, y);
+            doc.text(signatureServiceNumber, signatureX, y);
             y += 7;
             const cellLabel = 'Cell # ';
             const cellLabelWidth = doc.getTextWidth(cellLabel);
@@ -1726,9 +1742,12 @@
         }
 
         function checkInputEnabling() {
-            const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension');
+            const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const printBtn = document.getElementById('print-btn'); const printRestorationBtn = document.getElementById('print-restoration-btn');
             const dobFilled = dobInput.value !== ''; const doeFilled = doeInput.value !== ''; const sosFilled = sosInput.value !== ''; const grossPensionFilled = grossPensionInput.value !== '' && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0;
             doeInput.disabled = !dobFilled; sosInput.disabled = !(dobFilled && doeFilled); grossPensionInput.disabled = !(dobFilled && doeFilled && sosFilled); increasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); decreasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); tkAwardInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled); familyPensionInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled);
+            const hasCalculationData = dobFilled && doeFilled && sosFilled && grossPensionFilled;
+            if (printBtn) printBtn.disabled = !hasCalculationData;
+            if (printRestorationBtn) printRestorationBtn.disabled = !hasCalculationData;
             if (doeInput.disabled) { doeInput.value = ''; document.getElementById('doe-display').textContent = ''; } if (sosInput.disabled) { sosInput.value = ''; document.getElementById('sos-display').textContent = ''; } if (grossPensionInput.disabled) grossPensionInput.value = ''; if (tkAwardInput.disabled) tkAwardInput.value = 'No'; if (familyPensionInput.disabled) familyPensionInput.value = 'No';
             
             // New Logic for Family Pensioner Name visibility in Input Form
