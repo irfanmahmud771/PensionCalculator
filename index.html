@@ -960,18 +960,91 @@
             const pakNo = (document.getElementById('pak-no')?.value || '').trim();
             const fileName = `Pension-Slip-${pakNo || 'pensioner'}.pdf`;
             const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+            const left = 15;
+            const right = 195;
+            let y = 15;
 
-            if (typeof doc.html !== 'function') {
-                window.print();
-                return;
+            const readText = (id) => (document.getElementById(id)?.textContent || '').trim();
+            const rank = readText('print-rank');
+            const name = readText('print-name');
+            const cnic = readText('print-cnic');
+            const dob = readText('print-dob');
+            const sos = readText('print-sos');
+            const monthYear = readText('print-month-year');
+            const accountNo = readText('print-account');
+            const bankBranch = readText('print-bank');
+            const pensionLabel = readText('print-pension-label');
+            const pensionAmount = readText('print-pension-amount');
+            const increaseLabel = readText('print-increase-label');
+            const increaseAmount = readText('print-increase-amount');
+            const tkAmount = readText('print-tk');
+            const totalPayable = readText('print-total-payable');
+            const familyRowVisible = (document.getElementById('print-row-family-name')?.style.display || '') !== 'none';
+            const familyName = readText('print-family-pensioner-name');
+            const familyRelation = readText('print-family-relation-label');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            doc.text('Pakistan Air Force', 105, y, { align: 'center' });
+            y += 7;
+            doc.setFontSize(12);
+            doc.text(`Monthly Pension Statement (${monthYear || '-'})`, 105, y, { align: 'center' });
+
+            y += 10;
+            doc.setDrawColor(0);
+            doc.line(left, y, right, y);
+            y += 8;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10.5);
+            doc.text(`Rank: ${rank || '-'}`, left, y);
+            doc.text(`Pak No: ${pakNo || '-'}`, 110, y);
+            y += 6;
+            doc.text(`Name: ${name || '-'}`, left, y);
+            doc.text(`CNIC: ${cnic || '-'}`, 110, y);
+            y += 6;
+            doc.text(`Date of Birth: ${dob || '-'}`, left, y);
+            doc.text(`Retirement Date: ${sos || '-'}`, 110, y);
+
+            if (familyRowVisible) {
+                y += 6;
+                doc.text(`Family Pensioner: ${familyName || '-'}`, left, y);
+                doc.text(`${familyRelation || ''}`, 110, y);
             }
 
-            doc.html(printArea, {
-                callback: () => doc.save(fileName),
-                margin: [8, 8, 8, 8],
-                autoPaging: 'text',
-                html2canvas: { scale: 0.6, useCORS: true }
-            });
+            y += 9;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Pension Details', left, y);
+            y += 2;
+            doc.line(left, y, right, y);
+            y += 7;
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${pensionLabel || 'Monthly Pension'}:`, left, y);
+            doc.text(`${pensionAmount || '-'}`, right, y, { align: 'right' });
+            y += 6;
+            doc.text(`${increaseLabel || 'Pension Increase'}:`, left, y);
+            doc.text(`${increaseAmount || '-'}`, right, y, { align: 'right' });
+            if (tkAmount) {
+                y += 6;
+                doc.text('TK Allowance:', left, y);
+                doc.text(`${tkAmount}`, right, y, { align: 'right' });
+            }
+            y += 7;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Total Payable:', left, y);
+            doc.text(`${totalPayable || '-'}`, right, y, { align: 'right' });
+
+            y += 11;
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Account No: ${accountNo || '-'}`, left, y);
+            y += 6;
+            doc.text(`Bank & Branch: ${bankBranch || '-'}`, left, y);
+            y += 12;
+            doc.setFontSize(9);
+            doc.text('This is a computer-generated pension slip.', 105, y, { align: 'center' });
+
+            doc.save(fileName);
         };
 
         const isCalculationDataReady = () => {
