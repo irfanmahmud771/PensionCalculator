@@ -12,6 +12,7 @@
     <title>Pension Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -946,7 +947,58 @@
         };
 
         const generatePensionSlipPdf = () => {
-            window.print();
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "PDF library is not loaded. Please refresh and try again.");
+                }
+                return;
+            }
+
+            const printArea = document.getElementById('print-area');
+            if (!printArea) return;
+
+            const pakNo = (document.getElementById('pak-no')?.value || '').trim();
+            const fileName = `Pension-Slip-${pakNo || 'pensioner'}.pdf`;
+
+            if (!window.html2canvas) {
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "Canvas library is not loaded. Please refresh and try again.");
+                }
+                return;
+            }
+
+            window.html2canvas(printArea, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            }).then((canvas) => {
+                const imgData = canvas.toDataURL('image/png');
+                const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const imgWidth = pageWidth;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                let remainingHeight = imgHeight;
+                let positionY = 0;
+                doc.addImage(imgData, 'PNG', 0, positionY, imgWidth, imgHeight, '', 'FAST');
+                remainingHeight -= pageHeight;
+
+                while (remainingHeight > 0) {
+                    positionY = remainingHeight - imgHeight;
+                    doc.addPage();
+                    doc.addImage(imgData, 'PNG', 0, positionY, imgWidth, imgHeight, '', 'FAST');
+                    remainingHeight -= pageHeight;
+                }
+
+                doc.save(fileName);
+            }).catch((error) => {
+                console.error("Error generating payslip PDF:", error);
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "Unable to generate payslip PDF. Please try again.");
+                }
+            });
         };
 
         const isCalculationDataReady = () => {
