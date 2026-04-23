@@ -827,9 +827,11 @@
             const name = (document.getElementById('name')?.value || '____________').toUpperCase();
             const familyPensionerName = (document.getElementById('family-pensioner-name')?.value || '____________').toUpperCase();
             const pakNo = document.getElementById('pak-no')?.value || '____________';
+            const arm = document.getElementById('arms')?.value || 'PAF';
             const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
             const familyRelation = document.getElementById('family-relation')?.value || 'Widow';
             const signatureName = isFamilyPension ? familyPensionerName : name;
+            const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
             const dobDate = parseDate(document.getElementById('dob')?.value);
             const sosDate = parseDate(document.getElementById('sos')?.value);
             const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
@@ -844,13 +846,13 @@
 
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
-            doc.text(`PAF/${pakNo}/PF`, left, y);
+            doc.text(`${servicePrefix}/${pakNo}/PF`, left, y);
             doc.text(todayText, pageWidth - 22, y, { align: 'right' });
 
             y += 16;
-            doc.text('Dte of Pension', left, y);
+            doc.text('(____________________)', left, y);
             y += 7;
-            doc.text('Air Headquarters, Peshawar', left, y);
+            doc.text('(____________________)', left, y);
 
             y += 14;
             doc.text('Sir,', left, y);
