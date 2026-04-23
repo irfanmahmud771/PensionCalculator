@@ -826,6 +826,8 @@
             const rank = document.getElementById('rank')?.value || '____________';
             const name = (document.getElementById('name')?.value || '____________').toUpperCase();
             const pakNo = document.getElementById('pak-no')?.value || '____________';
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const familyRelation = document.getElementById('family-relation')?.value || 'Widow';
             const dobDate = parseDate(document.getElementById('dob')?.value);
             const sosDate = parseDate(document.getElementById('sos')?.value);
             const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
@@ -855,7 +857,10 @@
             y += sectionGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
-            doc.text('RESTORATION OF COMMUTED PORTION OF PENSION', pageWidth / 2, y, { align: 'center' });
+            const headingText = isFamilyPension
+                ? 'RESTORATION OF COMMUTED PORTION OF FAMILY PENSION'
+                : 'RESTORATION OF COMMUTED PORTION OF PENSION';
+            doc.text(headingText, pageWidth / 2, y, { align: 'center' });
 
             y += sectionGap;
             doc.setFont('helvetica', 'normal');
@@ -930,6 +935,10 @@
             doc.text(`(${name})`, signatureX, y);
             y += 7;
             doc.setFont('helvetica', 'normal');
+            if (isFamilyPension) {
+                doc.text(`${familyRelation} of`, signatureX, y);
+                y += 7;
+            }
             doc.text(`${rank} (Rtd)`, signatureX, y);
             y += 7;
             doc.text(`Pak/${pakNo}`, signatureX, y);
