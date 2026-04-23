@@ -293,7 +293,7 @@
                 
                 <div class="text-center mb-4">
                     <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
+                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         Print Pension Slip
                     </button>
                     <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
@@ -943,6 +943,30 @@
             doc.text(cellUnderline, cellLineStartX, y);
 
             doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
+        };
+
+        const generatePensionSlipPdf = () => {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "PDF library is not loaded. Please refresh and try again.");
+                }
+                return;
+            }
+
+            const printArea = document.getElementById('print-area');
+            if (!printArea) return;
+
+            const pakNo = (document.getElementById('pak-no')?.value || '').trim();
+            const fileName = `Pension-Slip-${pakNo || 'pensioner'}.pdf`;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+            doc.html(printArea, {
+                callback: () => doc.save(fileName),
+                margin: [8, 8, 8, 8],
+                autoPaging: 'text',
+                html2canvas: { scale: 0.6, useCORS: true }
+            });
         };
         
         const formatVisitCount = (num) => {
@@ -2056,7 +2080,7 @@
             allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
             grossPensionInput.addEventListener('input', formatGrossPensionInput);
             increasePensionBtn.addEventListener('mousedown', () => startPress(1)); decreasePensionBtn.addEventListener('mousedown', () => startPress(-1)); document.addEventListener('mouseup', stopPress); document.addEventListener('mouseleave', stopPress); increasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(1); }); decreasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(-1); }); document.addEventListener('touchend', stopPress); document.addEventListener('touchcancel', stopPress);
-            if (printBtn) { printBtn.addEventListener('click', () => { window.print(); }); }
+            if (printBtn) { printBtn.addEventListener('click', generatePensionSlipPdf); }
             if (printRestorationBtn) { printRestorationBtn.addEventListener('click', generateRestorationApplicationPdf); }
             
             if (isSupabaseEnabled) { 
