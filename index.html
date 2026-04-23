@@ -832,6 +832,9 @@
             const familyRelation = document.getElementById('family-relation')?.value || 'Widow';
             const signatureName = isFamilyPension ? familyPensionerName : name;
             const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
+            const isArmyOrNavy = arm === 'Army' || arm === 'Navy';
+            const serviceNumberLabel = isArmyOrNavy ? 'Service No  ' : 'Pak No  ';
+            const signatureServiceNumber = isArmyOrNavy ? `Service No ${pakNo}` : `Pak/${pakNo}`;
             const dobDate = parseDate(document.getElementById('dob')?.value);
             const sosDate = parseDate(document.getElementById('sos')?.value);
             const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
@@ -880,10 +883,10 @@
             doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
             doc.setFont('helvetica', 'normal');
             y += 10;
-            doc.text('Pak No  ', left + 12, y);
+            doc.text(serviceNumberLabel, left + 12, y);
             doc.text('Date of Birth  ', left + 86, y);
             doc.setFont('helvetica', 'bold');
-            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth('Pak No  '), y);
+            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth(serviceNumberLabel), y);
             doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
             doc.setFont('helvetica', 'normal');
             y += 10;
@@ -945,7 +948,7 @@
             }
             doc.text(`${rank} (Rtd)`, signatureX, y);
             y += 7;
-            doc.text(`Pak/${pakNo}`, signatureX, y);
+            doc.text(signatureServiceNumber, signatureX, y);
             y += 7;
             const cellLabel = 'Cell # ';
             const cellLabelWidth = doc.getTextWidth(cellLabel);
