@@ -853,9 +853,15 @@
             doc.text(todayText, pageWidth - 22, y, { align: 'right' });
 
             y += 16;
-            doc.text('____________________', left, y);
-            y += 7;
-            doc.text('____________________', left, y);
+            if (isArmyOrNavy) {
+                doc.text('____________________', left, y);
+                y += 7;
+                doc.text('____________________', left, y);
+            } else {
+                doc.text('Dte of Pension', left, y);
+                y += 7;
+                doc.text('Air Headquarters, Peshawar', left, y);
+            }
 
             y += 14;
             doc.text('Sir,', left, y);
