@@ -1659,7 +1659,7 @@
                     if (isEntitled === 'Y' && !isNaN(percentageValue)) { const baseForIncrease = Math.max(restoredBaseLine, applicableMinPension); restoredIncreaseValue = roundToTwoDecimals(baseForIncrease * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
                     restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
                     currentIncreaseValue = restoredIncreaseValue; isIncreaseCalculatedCurrent = isIncreaseCalculatedRestored;
-                    if (currentIncreaseValue > 0) { currentNetValue = roundToTwoDecimals(currentIncreaseValue + grossPension - basePension); } else { currentNetValue = roundToTwoDecimals(basePension); } isNetCalculatedCurrent = true;
+                    currentNetValue = roundToTwoDecimals(previousNetValueCurrent + currentIncreaseValue); isNetCalculatedCurrent = true;
                 } else if (year >= 1991 && year <= 1999) {
                     restoredBaseLine = previousNetValueRestored;
                     if (isEntitled === 'Y' && !isNaN(percentageValue)) { const baseForIncrease = Math.max(restoredBaseLine, applicableMinPension); restoredIncreaseValue = roundToTwoDecimals(baseForIncrease * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
