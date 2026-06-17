@@ -1556,13 +1556,12 @@
 
             let previousNetValueCurrent = basePension; let previousNetValueRestored = grossPension; 
             const currentNetValues = []; const restoredNetValues = [];
-            let net2024_Current = 0; let net2024_Restored = 0;
+            let net2024_Current = basePension; let net2024_Restored = grossPension;
             let totalAccumulatedIncreaseCurrent = 0; let totalAccumulatedIncreaseRestored = 0;
             const detailedData = [];
 
             pensionIncreases.forEach(item => {
                 const row = tbody.insertRow(); const fromDate = parseDate(item.from); const toDate = parseDate(item.to);
-                const net2024 = previousNetValueCurrent; 
                 
                 let isEntitled = 'N'; let percentageToDisplay = item.percentage; const year = item.year;
                 
@@ -1676,7 +1675,7 @@
                     if (isEntitled === 'Y' && !isNaN(percentageValue)) { restoredIncreaseValue = roundToTwoDecimals(restoredBaseLine * percentageValue); isIncreaseCalculatedRestored = true; } else { restoredIncreaseValue = 0; }
                     restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
                 } else if (year >= 2025) {
-                    currentBaseLine = net2024;
+                    currentBaseLine = net2024_Current;
                     baseLineDisplayCurrent = formatCurrency(currentBaseLine, false, true);
                     
                     if (isEntitled === 'Y' && percentageValue > 0) {
@@ -1686,9 +1685,9 @@
                         currentIncreaseValue = 0; 
                     }
                     
-                    currentNetValue = roundToTwoDecimals(currentBaseLine + currentIncreaseValue); isNetCalculatedCurrent = true;
+                    currentNetValue = roundToTwoDecimals(previousNetValueCurrent + currentIncreaseValue); isNetCalculatedCurrent = true;
                     
-                    restoredBaseLine = previousNetValueRestored;
+                    restoredBaseLine = net2024_Restored;
                     if (isEntitled === 'Y' && !isNaN(percentageValue)) { 
                         const restoredIncreaseRaw = restoredBaseLine * percentageValue; 
                         restoredIncreaseValue = roundToTwoDecimals(restoredIncreaseRaw); 
@@ -1697,8 +1696,13 @@
                         restoredIncreaseValue = 0; 
                     }
                     
-                    restoredNetValue = roundToTwoDecimals(restoredBaseLine + restoredIncreaseValue); isNetCalculatedRestored = true;
+                    restoredNetValue = roundToTwoDecimals(previousNetValueRestored + restoredIncreaseValue); isNetCalculatedRestored = true;
                     baseLineDisplayRestored = formatCurrency(restoredBaseLine, false, true);
+                }
+
+                if (year === 2024) {
+                    net2024_Current = currentNetValue;
+                    net2024_Restored = restoredNetValue;
                 }
 
                 if (year > 1999) {
@@ -1835,9 +1839,47 @@
             }
         }
 
-        async function initVisitCounter() { if (!isSupabaseEnabled) return; const visitCountSpan = document.getElementById('visit-count'); if (!visitCountSpan) return; try { const { data: rpcData, error: rpcError } = await supabaseClient.rpc('increment_visits'); if (rpcError) throw rpcError; if (rpcData) { visitCountSpan.textContent = formatVisitCount(rpcData); } supabaseClient.channel('visits-channel').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'visits', filter: 'id=eq.1' }, (payload) => { visitCountSpan.textContent = formatVisitCount(payload.new.count); }).subscribe(); } catch (e) { console.error("Failed to update visit count:", e); try { const { data, error } = await supabaseClient.from('visits').select('count').eq('id', 1).single(); if (error) throw error; visitCountSpan.textContent = formatVisitCount(data.count); } catch (fetchError) { console.error("Failed to fetch visit count:", fetchError); visitCountSpan.textContent = 'Error'; } } }
+        async function initVisitCounter() { 
+            if (!isSupabaseEnabled) return; 
+            const visitCountSpan = document.getElementById('visit-count'); 
+            if (!visitCountSpan) return; 
+            try { 
+                const { data: rpcData, error: rpcError } = await supabaseClient.rpc('increment_visits'); 
+                if (rpcError) throw rpcError; 
+                if (rpcData) { visitCountSpan.textContent = formatVisitCount(rpcData); } 
+                try {
+                    supabaseClient.channel('visits-channel').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'visits', filter: 'id=eq.1' }, (payload) => { visitCountSpan.textContent = formatVisitCount(payload.new.count); }).subscribe((status, err) => {
+                        if (err) console.warn('Supabase realtime:', err);
+                    }); 
+                } catch(e) {
+                    console.warn('Realtime visits disabled:', e.message);
+                }
+            } catch (e) { 
+                console.error("Failed to update visit count:", e); 
+                try { 
+                    const { data, error } = await supabaseClient.from('visits').select('count').eq('id', 1).single(); 
+                    if (error) throw error; 
+                    visitCountSpan.textContent = formatVisitCount(data.count); 
+                } catch (fetchError) { 
+                    console.error("Failed to fetch visit count:", fetchError); 
+                    visitCountSpan.textContent = 'Error'; 
+                } 
+            } 
+        }
+
         async function fetchLogs() { if (!isSupabaseEnabled) return; try { const { data, error } = await supabaseClient.from('logs').select('*').order('created_at', { ascending: false }).limit(100); if (error) throw error; renderLog(data || []); } catch (error) { console.error("Error fetching logs: ", error); const logContainer = document.getElementById('log-container'); if(logContainer) logContainer.innerHTML = `<span class="text-red-500">Error loading log: ${error.message}</span>`; } }
-        function initLogListener() { if (!isSupabaseEnabled) return; fetchLogs(); supabaseClient.channel('logs-channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).subscribe(); }
+        
+        function initLogListener() { 
+            if (!isSupabaseEnabled) return; 
+            fetchLogs(); 
+            try {
+                supabaseClient.channel('logs-channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'logs' }, (payload) => { fetchLogs(); }).subscribe((status, err) => {
+                    if (err) console.warn('Supabase realtime:', err);
+                }); 
+            } catch (e) {
+                console.warn('Realtime logs disabled:', e.message);
+            }
+        }
 
         // --- NEW FUNCTION: Update Arms UI ---
         function updateArmsUI() {
@@ -2243,8 +2285,12 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
+                if (window.location.protocol === 'blob:' || window.location.protocol === 'data:') {
+                    console.warn('Service worker registration skipped in Canvas environment.');
+                    return;
+                }
                 navigator.serviceWorker.register('./service-worker.js').catch((error) => {
-                    console.error('Service worker registration failed:', error);
+                    console.warn('Service worker registration failed:', error.message);
                 });
             });
         }
