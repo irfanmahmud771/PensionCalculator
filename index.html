@@ -840,13 +840,14 @@
             const signatureName = isFamilyPension ? familyPensionerName : name;
             const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
             const isArmyOrNavy = arm === 'Army' || arm === 'Navy';
-            const serviceNumberLabel = isArmyOrNavy ? 'Service No  ' : 'Pak No  ';
             const signatureServiceNumber = isArmyOrNavy ? `Service No ${pakNo}` : `Pak/${pakNo}`;
             const dobDate = parseDate(document.getElementById('dob')?.value);
-            const sosDate = parseDate(document.getElementById('sos')?.value);
-            const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
-            const dobText = dobDate ? formatDateDisplay(dobDate) : '____________';
-            const sosText = sosDate ? formatDateDisplay(sosDate) : '____________';
+            const familyDobDate = parseDate(document.getElementById('family-dob')?.value);
+            const dateFor85Years = (isFamilyPension && familyDobDate) ? familyDobDate : dobDate;
+            const eightyFifthBirthday = dateFor85Years
+                ? new Date(Date.UTC(dateFor85Years.getUTCFullYear() + 85, dateFor85Years.getUTCMonth(), dateFor85Years.getUTCDate()))
+                : null;
+            const eightyFifthBirthdayText = eightyFifthBirthday ? formatDateDisplay(eightyFifthBirthday) : '____________';
             const todayText = formatDateLong(new Date());
 
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -878,71 +879,45 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
             const headingText = isFamilyPension
-                ? 'RESTORATION OF COMMUTED PORTION OF FAMILY PENSION'
-                : 'RESTORATION OF COMMUTED PORTION OF PENSION';
+                ? 'GRANT OF 25% INCREASE IN FAMILY PENSION'
+                : 'GRANT OF 25% INCREASE IN PENSION';
             doc.text(headingText, pageWidth / 2, y, { align: 'center' });
 
             y += sectionGap;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
             doc.text('1.', left, y);
-            doc.text('Appended below please find data for restoration of commuted portion of pension:-', left + 12, y);
+            const para1 = 'With reference to the subject cited above and under the provisions of Office Memorandum issued by the Finance Division (Regulation Wing) vide No. F.4 (1)-Reg-6/2016-1082 dated 26 September 2016 & F.4 (1)-Reg-6/2016-870 dated 01 July, 2016.';
+            const paragraphFirstLineX = left + 12;
+            const paragraphRemainingLineX = left;
+            const paragraphWidth = pageWidth - paragraphFirstLineX - 20;
+            const paragraphRemainingWidth = pageWidth - paragraphRemainingLineX - 20;
+            const paragraphLineHeight = 7;
+            const para1LineCount = drawJustifiedParagraphWithHangingIndent(
+                doc,
+                para1,
+                paragraphFirstLineX,
+                paragraphRemainingLineX,
+                y,
+                paragraphWidth,
+                paragraphRemainingWidth,
+                paragraphLineHeight
+            );
+            y += para1LineCount * paragraphLineHeight + 7;
 
-            y += 14;
-            doc.text('Rank  ', left + 12, y);
-            doc.text('Name  ', left + 86, y);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`${rank}`, left + 12 + doc.getTextWidth('Rank  '), y);
-            doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
-            doc.setFont('helvetica', 'normal');
-            y += 10;
-            doc.text(serviceNumberLabel, left + 12, y);
-            doc.text('Date of Birth  ', left + 86, y);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth(serviceNumberLabel), y);
-            doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
-            doc.setFont('helvetica', 'normal');
-            y += 10;
-            doc.text('Date of SOS  ', left + 12, y);
-            doc.text('Date of Restoration  ', left + 86, y);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`${sosText}`, left + 12 + doc.getTextWidth('Date of SOS  '), y);
-            doc.text(`${restorationDateText}`, left + 86 + doc.getTextWidth('Date of Restoration  '), y);
-            doc.setFont('helvetica', 'normal');
-            y += 10;
-            const addressX = left + 12;
-            const addressText = 'Address';
-            const lineEndX = pageWidth - 20;
-            const addressWidth = doc.getTextWidth(addressText);
-            const spaceWidth = doc.getTextWidth(' ');
-            doc.text(addressText, addressX, y);
-            const line1StartX = addressX + addressWidth + (spaceWidth * 3);
-            const line2StartX = addressX + addressWidth;
-            const addressLine1Text = buildUnderlineForWidth(doc, lineEndX - line1StartX);
-            const addressLine2Text = buildUnderlineForWidth(doc, lineEndX - line2StartX);
-            doc.text(addressLine1Text, line1StartX, y);
-            y += 10;
-            doc.text(addressLine2Text, line2StartX, y);
-
-            y += 18;
             doc.text('2.', left, y);
-            const para2 = 'It is, therefore, requested that commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
-            const para2FirstLineX = left + 12;
-            const para2RemainingLineX = left;
-            const para2Width = pageWidth - para2FirstLineX - 20;
-            const para2RemainingWidth = pageWidth - para2RemainingLineX - 20;
-            const para2LineHeight = 7;
+            const para2 = `I respectfully submit that I have attained the age of 85 years on ${eightyFifthBirthdayText}. In accordance with the above mentioned Office Memorandum, now I am entitled to a 25% increase in pension instead of 10% granted in July 2016.`;
             const para2LineCount = drawJustifiedParagraphWithHangingIndent(
                 doc,
                 para2,
-                para2FirstLineX,
-                para2RemainingLineX,
+                paragraphFirstLineX,
+                paragraphRemainingLineX,
                 y,
-                para2Width,
-                para2RemainingWidth,
-                para2LineHeight
+                paragraphWidth,
+                paragraphRemainingWidth,
+                paragraphLineHeight
             );
-            y += para2LineCount * para2LineHeight + 7;
+            y += para2LineCount * paragraphLineHeight + 7;
 
             doc.text('3.', left, y);
             doc.text('Submitted, please.', left + 12, y);
@@ -971,7 +946,7 @@
             doc.text(cellLabel, signatureX, y);
             doc.text(cellUnderline, cellLineStartX, y);
 
-            doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
+            doc.save(`85-Years-Application-${pakNo || 'pensioner'}.pdf`);
         };
 
         const generate85YearsApplicationPdf = () => {
