@@ -292,20 +292,20 @@
             <div class="card">
                 <h2 class="card-title text-center font-bold text-xl">Printing Jobs</h2>
                 
-                <div class="text-center mt-4 mb-6">
-                    <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
+                <div class="flex flex-wrap justify-center items-center gap-2 mt-4 mb-6">
+                    <button id="print-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-2 rounded inline-flex items-center transition-colors text-xs sm:text-sm">
+                        <svg class="fill-current w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         Pension Slip
                     </button>
-                    <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
+                    <button id="print-restoration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-2 rounded inline-flex items-center transition-colors text-xs sm:text-sm">
+                        <svg class="fill-current w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         Restoration Application
                     </button>
-                    <button id="print-85-years-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
-                        <svg class="fill-current w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
+                    <button id="print-85-years-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-2 rounded inline-flex items-center transition-colors text-xs sm:text-sm">
+                        <svg class="fill-current w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5a3 3 0 0 0-3 3v5h4v5h12v-5h4v-5a3 3 0 0 0-3-3zm-9-3h4v3h-4zm6 14H8v-5h8zm2-7H6v-2h12z"/></svg>
                         85 Years Application
                     </button>
-                    <button id="install-app-btn" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors ml-2 mt-2 md:mt-0">
+                    <button id="install-app-btn" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded inline-flex items-center transition-colors text-xs sm:text-sm">
                         Install App (Windows/Android)
                     </button>
                 </div>
@@ -778,25 +778,33 @@
         };
 
         const drawJustifiedParagraphWithHangingIndent = (doc, text, firstX, otherX, y, firstWidth, otherWidth, lineHeight = 7) => {
-            const words = text.split(/\s+/).filter(Boolean);
             const lines = [];
-            let currentLine = '';
 
-            words.forEach((word) => {
-                const candidate = currentLine ? `${currentLine} ${word}` : word;
-                const lineIndex = lines.length;
-                const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
-                if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
-                    currentLine = candidate;
-                } else {
-                    lines.push(currentLine);
-                    currentLine = word;
+            const forcedLines = text.split('\n');
+            forcedLines.forEach((textLine, forcedLineIndex) => {
+                const words = textLine.split(/\s+/).filter(Boolean);
+                let currentLine = '';
+
+                words.forEach((word) => {
+                    const candidate = currentLine ? `${currentLine} ${word}` : word;
+                    const lineIndex = lines.length;
+                    const maxWidth = lineIndex === 0 ? firstWidth : otherWidth;
+                    if (!currentLine || doc.getTextWidth(candidate) <= maxWidth) {
+                        currentLine = candidate;
+                    } else {
+                        lines.push({ text: currentLine, forcedEnd: false });
+                        currentLine = word;
+                    }
+                });
+
+                if (currentLine) {
+                    lines.push({ text: currentLine, forcedEnd: forcedLineIndex < forcedLines.length - 1 });
                 }
             });
-            if (currentLine) lines.push(currentLine);
 
-            lines.forEach((line, index) => {
-                const isLastLine = index === lines.length - 1;
+            lines.forEach((lineInfo, index) => {
+                const line = lineInfo.text;
+                const isLastLine = index === lines.length - 1 || lineInfo.forcedEnd;
                 const x = index === 0 ? firstX : otherX;
                 const maxWidth = index === 0 ? firstWidth : otherWidth;
 
@@ -847,7 +855,7 @@
             const eightyFifthBirthday = dateFor85Years
                 ? new Date(Date.UTC(dateFor85Years.getUTCFullYear() + 85, dateFor85Years.getUTCMonth(), dateFor85Years.getUTCDate()))
                 : null;
-            const eightyFifthBirthdayText = eightyFifthBirthday ? formatDateDisplay(eightyFifthBirthday) : '____________';
+            const eightyFifthBirthdayText = eightyFifthBirthday ? formatDateLong(eightyFifthBirthday) : '____________';
             const todayText = formatDateLong(new Date());
 
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -879,15 +887,15 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
             const headingText = isFamilyPension
-                ? 'GRANT OF 25% INCREASE IN FAMILY PENSION'
-                : 'GRANT OF 25% INCREASE IN PENSION';
+                ? 'GRANT OF 25% INCREASE IN FAMILY PENSION ON 85 YEARS AGE'
+                : 'GRANT OF 25% INCREASE IN PENSION ON 85 YEARS AGE';
             doc.text(headingText, pageWidth / 2, y, { align: 'center' });
 
             y += sectionGap;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
             doc.text('1.', left, y);
-            const para1 = 'With reference to the subject cited above and under the provisions of Office Memorandum issued by the Finance Division (Regulation Wing) vide No. F.4 (1)-Reg-6/2016-1082 dated 26 September 2016 & F.4 (1)-Reg-6/2016-870 dated 01 July, 2016.';
+            const para1 = 'With reference to the subject cited above and under the provisions of Office Memorandum issued by the Finance Division (Regulation Wing) vide\nNo. F.4 (1)-Reg-6/2016-1082 dated 26 September 2016 & F.4 (1)-Reg-6/2016-870 dated\n01 July, 2016.';
             const paragraphFirstLineX = left + 12;
             const paragraphRemainingLineX = left;
             const paragraphWidth = pageWidth - paragraphFirstLineX - 20;
@@ -920,6 +928,20 @@
             y += para2LineCount * paragraphLineHeight + 7;
 
             doc.text('3.', left, y);
+            const para3 = 'It is, therefore, requested that the referred increase in my pension may please be granted and dispatch a copy of Corrigendum PPO to my home address.';
+            const para3LineCount = drawJustifiedParagraphWithHangingIndent(
+                doc,
+                para3,
+                paragraphFirstLineX,
+                paragraphRemainingLineX,
+                y,
+                paragraphWidth,
+                paragraphRemainingWidth,
+                paragraphLineHeight
+            );
+            y += para3LineCount * paragraphLineHeight + 7;
+
+            doc.text('4.', left, y);
             doc.text('Submitted, please.', left + 12, y);
 
             y += 34;
