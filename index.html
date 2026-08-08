@@ -804,7 +804,7 @@
 
             lines.forEach((lineInfo, index) => {
                 const line = lineInfo.text;
-                const isLastLine = index === lines.length - 1 || lineInfo.forcedEnd;
+                const isLastLine = index === lines.length - 1;
                 const x = index === 0 ? firstX : otherX;
                 const maxWidth = index === 0 ? firstWidth : otherWidth;
 
@@ -895,7 +895,7 @@
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
             doc.text('1.', left, y);
-            const para1 = 'With reference to the subject cited above and under the provisions of Office Memorandum issued by the Finance Division (Regulation Wing) vide\nNo. F.4 (1)-Reg-6/2016-1082 dated 26 September 2016 & F.4 (1)-Reg-6/2016-870 dated\n01 July, 2016.';
+            const para1 = 'With reference to the subject cited above and under the provisions of\nOffice Memorandum issued by the Finance Division (Regulation Wing) vide\nNo. F.4 (1)-Reg-6/2016-1082 dated 26 September 2016 & F.4 (1)-Reg-6/2016-870 dated\n01 July, 2016.';
             const paragraphFirstLineX = left + 12;
             const paragraphRemainingLineX = left;
             const paragraphWidth = pageWidth - paragraphFirstLineX - 20;
@@ -914,7 +914,7 @@
             y += para1LineCount * paragraphLineHeight + 7;
 
             doc.text('2.', left, y);
-            const para2 = `I respectfully submit that I have attained the age of 85 years on ${eightyFifthBirthdayText}. In accordance with the above mentioned Office Memorandum, now I am entitled to a 25% increase in pension instead of 10% granted in July 2016.`;
+            const para2 = `I respectfully submit that I have attained the age of 85 years on ${eightyFifthBirthdayText}.\nIn accordance with the above mentioned Office Memorandum, now I am entitled to a 25% increase in pension instead of 10% granted in July 2016.`;
             const para2LineCount = drawJustifiedParagraphWithHangingIndent(
                 doc,
                 para2,
