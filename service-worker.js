@@ -1,10 +1,9 @@
-const CACHE = "pension-app-v2";
+const CACHE = "pension-app-v3";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png",
+  "./app-icon.svg",
   "./logo.gif",
   "./logo1.gif",
   "./logo2.gif",
