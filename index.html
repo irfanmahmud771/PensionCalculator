@@ -2137,7 +2137,19 @@
             allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
             grossPensionInput.addEventListener('input', formatGrossPensionInput);
             increasePensionBtn.addEventListener('mousedown', () => startPress(1)); decreasePensionBtn.addEventListener('mousedown', () => startPress(-1)); document.addEventListener('mouseup', stopPress); document.addEventListener('mouseleave', stopPress); increasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(1); }); decreasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(-1); }); document.addEventListener('touchend', stopPress); document.addEventListener('touchcancel', stopPress);
-            if (printBtn) { printBtn.addEventListener('click', () => { window.print(); }); }
+            if (printBtn) {
+                printBtn.addEventListener('click', () => {
+                    const originalTitle = document.title;
+                    const pakNo = document.getElementById('pak-no')?.value.trim();
+                    document.title = `Pension-Slip-${pakNo || 'pensioner'}`;
+
+                    window.addEventListener('afterprint', () => {
+                        document.title = originalTitle;
+                    }, { once: true });
+
+                    window.print();
+                });
+            }
             if (printRestorationBtn) { printRestorationBtn.addEventListener('click', generateRestorationApplicationPdf); }
             if (print85YearsBtn) { print85YearsBtn.addEventListener('click', generate85YearsApplicationPdf); }
             
