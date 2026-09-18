@@ -2139,14 +2139,10 @@
             increasePensionBtn.addEventListener('mousedown', () => startPress(1)); decreasePensionBtn.addEventListener('mousedown', () => startPress(-1)); document.addEventListener('mouseup', stopPress); document.addEventListener('mouseleave', stopPress); increasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(1); }); decreasePensionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(-1); }); document.addEventListener('touchend', stopPress); document.addEventListener('touchcancel', stopPress);
             if (printBtn) {
                 printBtn.addEventListener('click', () => {
-                    const originalTitle = document.title;
                     const pakNo = document.getElementById('pak-no')?.value.trim();
                     document.title = `Pension-Slip-${pakNo || 'pensioner'}`;
-
-                    window.addEventListener('afterprint', () => {
-                        document.title = originalTitle;
-                    }, { once: true });
-
+                    // Keep this title while the browser's print preview is open. Some
+                    // browsers fire `afterprint` before the user saves the PDF.
                     window.print();
                 });
             }
