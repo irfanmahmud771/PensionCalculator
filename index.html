@@ -233,7 +233,11 @@
                             <div id="sos-display" class="text-xs text-gray-500 mt-1"></div>
                         </div>
                         <div class="input-group">
-                            <label for="gross-pension-ppo">Gross Pension as per PPO</label>
+                            <label for="gross-pension-ppo">Gross Pension <span class="text-xs font-normal text-gray-500">(Remove check for manual entry)</span></label>
+                            <div class="flex items-center mb-2">
+                                <input id="gross-pension-confirmed" type="checkbox" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                                <label for="gross-pension-confirmed" class="ms-2 mb-0 text-sm font-medium text-gray-900">PPO pension amount is correct</label>
+                            </div>
                             <div class="pension-input-wrapper">
                                 <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
                                 <div class="pension-stepper">
@@ -633,7 +637,7 @@
         const LOG_DEBOUNCE_DELAY = 10000; 
         let passwordAction = ''; // 'show' or 'clear'
         let pendingLoadData = null; // Temp storage for verification
-        let grossPensionWarningShown = false; // Flag for warning
+        let grossPensionWarningShown = false; // Flag for field-entry warning
 
         // --- DEFINE CONSTANTS AND HELPERS ---
 
@@ -2020,31 +2024,27 @@
                 });
             }
 
-            // Warning on Gross Pension Click/Focus
+            // Keep the existing warning when the Gross Pension field is selected.
             if (grossPensionInput) {
                 const warnGrossPension = () => {
-                    if (grossPensionWarningShown) return; // Exit if already shown
+                    if (grossPensionWarningShown) return;
 
-                    grossPensionInput.blur(); // Disable entry (remove focus)
-                    
-                    // Show modal logic
-                    const msgTitle = document.getElementById('msg-modal-title');
-                    const msgBody = document.getElementById('msg-modal-body');
-                    const msgModal = document.getElementById('message-modal');
-                    
-                    msgTitle.textContent = "ATTENTION";
-                    msgTitle.className = "text-lg font-bold mb-2 text-red-600 flashing";
-                    msgBody.textContent = "Please enter Gross Pension from PPO or Pension Book. Don't enter your current Pension";
-                    
-                    msgModal.classList.add('visible');
-                    
-                    grossPensionWarningShown = true; // Set flag so it doesn't show again
+                    grossPensionInput.blur();
+                    openMessageModal("ATTENTION", "Please enter Gross Pension from PPO or Pension Book. Don't enter your current Pension");
+                    grossPensionWarningShown = true;
                 };
-                
-                // Add listener. To avoid spamming, maybe only if value is empty? 
-                // User query: "When clicked in..."
-                // I will use 'focus' as it covers click and tab.
+
                 grossPensionInput.addEventListener('focus', warnGrossPension);
+            }
+
+            // Warn separately when the acknowledgement is removed for manual entry.
+            const grossPensionConfirmedCheckbox = document.getElementById('gross-pension-confirmed');
+            if (grossPensionConfirmedCheckbox) {
+                grossPensionConfirmedCheckbox.addEventListener('change', () => {
+                    if (!grossPensionConfirmedCheckbox.checked) {
+                        openMessageModal("ATTENTION", "Please enter Gross Pension from PPO or Pension Book. Don't enter your current Pension");
+                    }
+                });
             }
 
             if (!allInputs.length || !grossPensionInput || !increasePensionBtn || !decreasePensionBtn || !cancelClearBtn || !confirmClearBtn || !passwordInput || !logContainer || !showLogBtn) { console.error("CRITICAL ERROR: One or more required HTML elements are missing from the page."); showWarning("CRITICAL ERROR: Page HTML is incomplete. Please reload."); return; }
