@@ -233,7 +233,10 @@
                             <div id="sos-display" class="text-xs text-gray-500 mt-1"></div>
                         </div>
                         <div class="input-group">
-                            <label for="gross-pension-ppo">Gross Pension as per PPO</label>
+                            <div class="flex items-start justify-between mb-2">
+                                <label for="gross-pension-ppo" class="mb-0">Gross Pension <span class="text-xs font-normal text-gray-500">(Remove check for manual entry)</span></label>
+                                <input id="gross-pension-confirmed" type="checkbox" checked aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                            </div>
                             <div class="pension-input-wrapper">
                                 <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
                                 <div class="pension-stepper">
