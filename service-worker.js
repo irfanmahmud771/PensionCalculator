@@ -1,4 +1,4 @@
-const CACHE = "pension-app-v2";
+const CACHE = "pension-app-v3";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
