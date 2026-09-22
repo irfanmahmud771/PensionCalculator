@@ -300,7 +300,7 @@
                                 <input type="number" id="disturbance-pay" min="0" step="0.01" inputmode="decimal">
                             </div>
                             <div class="input-group">
-                                <label for="gcb-pay">GCB Pay</label>
+                                <label for="gcb-pay">GCB Pay/Other Pay</label>
                                 <input type="number" id="gcb-pay" min="0" step="0.01" inputmode="decimal">
                             </div>
                             <div class="input-group">
@@ -309,7 +309,7 @@
                             </div>
                             <div class="input-group">
                                 <label for="total-pay">Total Pay</label>
-                                <input type="number" id="total-pay" min="0" step="0.01" inputmode="decimal">
+                                <input type="number" id="total-pay" min="0" step="0.01" inputmode="decimal" readonly aria-readonly="true">
                             </div>
                             <div class="input-group">
                                 <label for="gross-pension-component">Gross Pension</label>
@@ -688,7 +688,19 @@
             if (typeof num !== 'number' || isNaN(num)) return 0;
             const epsilon = 0.0000001; 
             return Math.round((num + epsilon) * 100) / 100;
-        }
+        };
+
+        const calculateTotalPay = () => {
+            const componentInputs = ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment']
+                .map(id => document.getElementById(id));
+            const totalPayInput = document.getElementById('total-pay');
+
+            if (!totalPayInput || componentInputs.some(input => !input)) return;
+
+            const hasComponentValue = componentInputs.some(input => input.value.trim() !== '');
+            const totalPay = componentInputs.reduce((sum, input) => sum + (parseFloat(input.value) || 0), 0);
+            totalPayInput.value = hasComponentValue ? roundToTwoDecimals(totalPay).toFixed(2) : '';
+        };
         
         const roundToNearestWhole = (num) => {
             if (typeof num !== 'number' || isNaN(num)) return 0;
@@ -2175,6 +2187,12 @@
                     validateCNICField(familyCnicInput, familyCnicError, isFamilyRequired);
                 });
             }
+
+            const payComponentInputs = ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+            payComponentInputs.forEach(input => input.addEventListener('input', calculateTotalPay));
+            calculateTotalPay();
 
             allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
             grossPensionInput.addEventListener('input', formatGrossPensionInput);
