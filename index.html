@@ -233,6 +233,19 @@
                             <div id="sos-display" class="text-xs text-gray-500 mt-1"></div>
                         </div>
                         <div class="input-group">
+                            <div class="flex items-start justify-between mb-2">
+                                <label for="gross-pension-ppo" class="mb-0">Gross Pension <span class="text-xs font-normal text-gray-500">(Remove check for manual entry)</span></label>
+                                <input id="gross-pension-confirmed" type="checkbox" checked aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="pension-input-wrapper">
+                                <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
+                                <div class="pension-stepper">
+                                    <button type="button" id="increase-pension" aria-label="Increase pension" disabled>+</button>
+                                    <button type="button" id="decrease-pension" aria-label="Decrease pension" disabled>-</button>
+                                </div>
+                            </div>
+                        </div>
+                         <div class="input-group">
                             <label for="tk-award">TK Award</label>
                             <select id="tk-award" class="calc-input" disabled>
                                 <option value="No" selected>No</option>
@@ -242,21 +255,11 @@
                             </select>
                         </div>
                         <div class="input-group">
-                            <label for="family-pension">Family Pension</label>
+                           <label for="family-pension">Family Pension</label>
                             <select id="family-pension" class="calc-input" disabled>
                                 <option value="No" selected>No</option>
                                 <option value="Yes">Yes</option>
                             </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="gross-pension-ppo">Gross Pension</label>
-                            <div class="pension-input-wrapper">
-                                <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
-                                <div class="pension-stepper">
-                                    <button type="button" id="increase-pension" aria-label="Increase pension" disabled>+</button>
-                                    <button type="button" id="decrease-pension" aria-label="Decrease pension" disabled>-</button>
-                                </div>
-                            </div>
                         </div>
                         <!-- NEW INPUT FIELDS FOR FAMILY PENSIONER -->
                         <div class="input-group" id="grp-family-name" style="display: none;">
@@ -2084,6 +2087,18 @@
                 // User query: "When clicked in..."
                 // I will use 'focus' as it covers click and tab.
                 grossPensionInput.addEventListener('focus', warnGrossPension);
+            }
+
+            const grossPensionConfirmedCheckbox = document.getElementById('gross-pension-confirmed');
+            const payComponentsCard = document.getElementById('pay-components-card');
+            const updatePayComponentsVisibility = () => {
+                if (grossPensionConfirmedCheckbox && payComponentsCard) {
+                    payComponentsCard.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked);
+                }
+            };
+            if (grossPensionConfirmedCheckbox && payComponentsCard) {
+                grossPensionConfirmedCheckbox.addEventListener('change', updatePayComponentsVisibility);
+                updatePayComponentsVisibility();
             }
 
             if (!allInputs.length || !grossPensionInput || !increasePensionBtn || !decreasePensionBtn || !cancelClearBtn || !confirmClearBtn || !passwordInput || !logContainer || !showLogBtn) { console.error("CRITICAL ERROR: One or more required HTML elements are missing from the page."); showWarning("CRITICAL ERROR: Page HTML is incomplete. Please reload."); return; }
