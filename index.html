@@ -234,8 +234,8 @@
                         </div>
                         <div class="input-group">
                             <div class="flex items-start justify-between mb-2">
-                                <label for="gross-pension-ppo" class="mb-0">Gross Pension <span class="text-xs font-normal text-gray-500">(Remove check for manual entry)</span></label>
-                                <input id="gross-pension-confirmed" type="checkbox" checked disabled aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                                <label for="gross-pension-ppo" class="mb-0">Gross Pension <span class="text-xs font-normal text-gray-500">(Mark check to calculate from Pay)</span></label>
+                                <input id="gross-pension-confirmed" type="checkbox" disabled aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div class="pension-input-wrapper">
                                 <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
@@ -245,7 +245,7 @@
                                 </div>
                             </div>
                         </div>
-                            <div class="input-group" id="grp-medical-board">
+                            <div class="input-group hidden" id="grp-medical-board">
                                 <label for="medical-board">Medical Board</label>
                                 <select id="medical-board" disabled>
                                     <option value="No" selected>No</option>
@@ -299,7 +299,7 @@
                         </div>
                     </div>
 
-                    <div id="pay-components-card" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <div id="pay-components-card" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 hidden">
                             <h3 class="font-semibold text-lg text-gray-600 border-b pb-2 md:col-span-2">Pay Components (for Gross Pension)</h3>
                             <div class="input-group">
                                 <label for="basic-pay">Basic Pay</label>
@@ -372,6 +372,7 @@
                     </div>
                 </div>
                 
+                <div id="disability-details-section" class="hidden"> <!-- shown only when a Medical Board grade (A, B or C) is selected -->
                 <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Disability Pension Details</h3>
                 <div class="mt-4 space-y-2">
                     <div class="output-group">
@@ -394,6 +395,7 @@
                         <span class="label">Disability Commute</span>
                         <span class="value text-gray-800" id="disability-commute-output">0</span>
                     </div>
+                </div>
                 </div>
 
                 <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Pension Details</h3>
@@ -532,6 +534,24 @@
                 <button id="confirm-clear-btn" type="button" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
                     Confirm
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JCO ADDL PENSION MODAL (opens when the JCO Addl Pension field is clicked) -->
+    <div id="jco-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 560px; max-height: 90vh; overflow-y: auto;">
+            <h3 class="text-lg font-bold mb-1">JCO Addl Pension</h3>
+            <p class="text-xs text-gray-500 mb-4">Enter the dates served in each JCO rank (<span id="jco-modal-arm"></span>). The Start Date of each higher rank is filled automatically as the End Date of the rank below plus one day. 365 days = 1 year; broken periods roll down to the next lower rank (Rule 82g), and the total is capped at the maximum of the highest rank held (Rule 82d).</p>
+            <div id="jco-rows" class="space-y-3"></div>
+            <div class="mt-4 border-t pt-3 text-sm space-y-1">
+                <div id="jco-sum-text" class="text-gray-600"></div>
+                <div id="jco-cap-text" class="text-gray-600"></div>
+                <div id="jco-final-text" class="font-bold text-gray-800"></div>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="jco-insert-btn" type="button" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Insert</button>
+                <button id="jco-manual-btn" type="button" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-5 rounded-lg transition-colors">Manual</button>
             </div>
         </div>
     </div>
@@ -769,7 +789,7 @@
             updateDisabilityPay();
         };
 
-        // Gross Pension link: while "Remove check for manual entry" is ticked, the main Gross Pension is locked and
+        // Gross Pension link: while "Mark check to calculate from Pay" is ticked, the main Gross Pension is locked and
         // always equals the calculated Gross Pension of the pay section. Untick it (only possible once SOS is entered)
         // to type the main field by hand. The calculated field is never filled from the main field.
         let grossPensionLinkBusy = false;
@@ -828,6 +848,34 @@
 
         // Pay fields are open for entry once SOS is entered; JCO Addl Pension only for ranks above Chf Tech (PAF), Hav (Army) or PO (Navy)
         const JCO_ADDL_PENSION_ABOVE_RANK = { PAF: 'Chf Tech', Army: 'Hav', Navy: 'PO' };
+
+        // JCO Addl Pension (Rs. per month) from the dates served in the three JCO ranks (lowest -> highest)
+        //  Days       : End - Start + 1 (inclusive)
+        //  Years      : from the highest rank downwards, INT((Days + MOD(days rolled down from the rank above, 365)) / 365)   (Rule 82g roll-down, 365-day year)
+        //  Amount     : IF(Years>=3, Max, Years * PerYear)                                                                      (Rule 82a)
+        //  Final      : MIN(sum of amounts, maximum of the highest rank held)                                                   (Rule 82d)
+        const JCO_TIERS = [{ perYear: 10, max: 30 }, { perYear: 13, max: 40 }, { perYear: 16, max: 50 }];
+        const computeJcoAddlPension = (periods) => {
+            const rows = periods.map(p => {
+                if (!p.start || !p.end) return { days: 0, invalid: false };
+                if (p.end < p.start) return { days: 0, invalid: true };
+                return { days: Math.round((p.end - p.start) / 86400000) + 1, invalid: false };
+            });
+            let carry = 0;
+            for (let i = rows.length - 1; i >= 0; i--) {
+                const total = rows[i].days + carry;
+                rows[i].carryIn = carry;
+                rows[i].totalDays = total;
+                rows[i].years = Math.floor(total / 365);
+                rows[i].amount = rows[i].years >= 3 ? JCO_TIERS[i].max : rows[i].years * JCO_TIERS[i].perYear;
+                carry = total % 365;
+            }
+            const sum = rows.reduce((a, r) => a + r.amount, 0);
+            let highest = -1;
+            rows.forEach((r, i) => { if (r.days > 0) highest = i; });
+            const cap = highest >= 0 ? JCO_TIERS[highest].max : 0;
+            return { rows, sum, cap, highest, final: Math.min(sum, cap) };
+        };
         const isJcoAddlPensionRank = () => {
             const arm = document.getElementById('arms')?.value;
             const rankSel = document.getElementById('rank');
@@ -849,7 +897,7 @@
             if (medicalBoard) { medicalBoard.disabled = !sosFilled; if (!sosFilled) medicalBoard.value = 'No'; }
             const confirmChk = document.getElementById('gross-pension-confirmed');
             if (confirmChk) {
-                if (!sosFilled && !confirmChk.checked) { confirmChk.checked = true; confirmChk.dispatchEvent(new Event('change')); }
+                if (!sosFilled && confirmChk.checked) { confirmChk.checked = false; confirmChk.dispatchEvent(new Event('change')); } // needs SOS, so back to manual entry
                 confirmChk.disabled = !sosFilled;
             }
             let changed = false;
@@ -907,6 +955,9 @@
         const updateDisabilityPay = () => {
             const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const f = getDisabilityFigures();
+            const disabilitySection = document.getElementById('disability-details-section');
+            if (disabilitySection) disabilitySection.classList.toggle('hidden', !f.active); // Disability Pension Details only for Medical Board A, B or C
+            ['gross-pension-output', 'commutation-amount-total-output'].forEach(id => { const row = document.getElementById(id)?.closest('.output-group'); if (row) row.style.display = f.active ? '' : 'none'; }); // the (Normal+Disability) totals too
             const totalGross = currentNormalGrossPension + f.grossDisability;
             set('gross-pension-output', formatCurrency(totalGross));
             set('net-pension-pre-increase-output', formatCurrency(roundToTwoDecimals(totalGross - (currentNormalCommutedPension + (f.commutedValue || 0)))));
@@ -2610,6 +2661,82 @@
             if (grossPensionComponentInput) grossPensionComponentInput.addEventListener('input', () => syncGrossPensionLink('component'));
             const medicalBoardSelect = document.getElementById('medical-board');
             if (medicalBoardSelect) medicalBoardSelect.addEventListener('input', calculateAndDisplayAll);
+            // ---- JCO Addl Pension popup: opens when the field is clicked; "Insert" fills the field, "Manual" lets you type it ----
+            const JCO_RANKS_BY_ARM = { Army: ['Nb Sub', 'Sub', 'Sub Maj'], Navy: ['CPO', 'FCPO', 'MCPO'], PAF: ['Asstt Wrt Off', 'Wrt Off', 'Chf Wrt Off'] }; // lowest -> highest JCO rank
+            const jcoModal = document.getElementById('jco-modal');
+            const jcoField = document.getElementById('jco-addl-pension');
+            const jcoInsertBtn = document.getElementById('jco-insert-btn');
+            const jcoManualBtn = document.getElementById('jco-manual-btn');
+            const jcoSavedDates = {}; // dates typed so far, per arm, so the popup reopens with them
+            let jcoManualFocus = false; // true after "Manual": typing in the field does not reopen the popup
+            const jcoArm = () => { const a = document.getElementById('arms')?.value; return JCO_RANKS_BY_ARM[a] ? a : 'Army'; };
+            const jcoSet = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+            const readJcoPeriods = () => [0, 1, 2].map(i => ({ start: parseDate(document.getElementById('jco-start-' + i)?.value), end: parseDate(document.getElementById('jco-end-' + i)?.value) }));
+            const updateJcoResults = () => {
+                const arm = jcoArm();
+                const ranks = JCO_RANKS_BY_ARM[arm];
+                // Start Date of each higher rank = End Date of the rank below + 1 day (always calculated, entry blocked)
+                for (let i = 1; i < 3; i++) {
+                    const prevEnd = parseDate(document.getElementById('jco-end-' + (i - 1))?.value);
+                    const startEl = document.getElementById('jco-start-' + i);
+                    if (!startEl) continue;
+                    startEl.value = prevEnd ? new Date(prevEnd.getTime() + 86400000).toISOString().slice(0, 10) : '';
+                    startEl.readOnly = true; // never typed by hand
+                }
+                jcoSavedDates[arm] = [0, 1, 2].map(i => ({ start: document.getElementById('jco-start-' + i)?.value || '', end: document.getElementById('jco-end-' + i)?.value || '' }));
+                const r = computeJcoAddlPension(readJcoPeriods());
+                r.rows.forEach((row, i) => {
+                    const el = document.getElementById('jco-result-' + i);
+                    if (!el) return;
+                    el.className = 'text-xs mt-2 ' + (row.invalid ? 'text-red-500' : 'text-gray-600');
+                    el.textContent = row.invalid ? 'End date is before the start date.'
+                        : (row.totalDays > 0 ? `Days ${row.days}${row.carryIn ? ' + ' + row.carryIn + ' rolled down' : ''} = ${row.totalDays}  |  Years ${row.years}  |  Rs. ${row.amount}` : 'No service entered.');
+                });
+                jcoSet('jco-sum-text', `Total of all ranks: Rs. ${r.sum}`);
+                jcoSet('jco-cap-text', r.highest >= 0 ? `Maximum for the highest rank held (${ranks[r.highest]}): Rs. ${r.cap}` : 'Enter the dates served in at least one rank.');
+                jcoSet('jco-final-text', `JCO Addl Pension: Rs. ${r.final}`);
+                if (jcoInsertBtn) jcoInsertBtn.disabled = r.highest < 0;
+            };
+            const openJcoModal = () => {
+                if (!jcoModal) return;
+                const arm = jcoArm();
+                const saved = jcoSavedDates[arm] || [];
+                jcoSet('jco-modal-arm', arm);
+                document.getElementById('jco-rows').innerHTML = JCO_RANKS_BY_ARM[arm].map((rank, i) => `
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div class="flex justify-between items-baseline mb-2">
+                            <span class="font-semibold text-sm">${rank}</span>
+                            <span class="text-xs text-gray-500">Rs. ${JCO_TIERS[i].perYear} per year (max Rs. ${JCO_TIERS[i].max})</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="input-group" style="margin-bottom: 0;"><label for="jco-start-${i}">Start Date</label><input type="date" id="jco-start-${i}" value="${saved[i]?.start || ''}"${i > 0 ? ' readonly title="End Date of the rank below + 1 day"' : ''}></div>
+                            <div class="input-group" style="margin-bottom: 0;"><label for="jco-end-${i}">End Date</label><input type="date" id="jco-end-${i}" value="${saved[i]?.end || ''}"></div>
+                        </div>
+                        <div id="jco-result-${i}" class="text-xs text-gray-600 mt-2"></div>
+                    </div>`).join('');
+                [0, 1, 2].forEach(i => {
+                    document.getElementById('jco-start-' + i)?.addEventListener('input', updateJcoResults);
+                    document.getElementById('jco-end-' + i)?.addEventListener('input', updateJcoResults);
+                });
+                updateJcoResults();
+                jcoModal.classList.add('visible');
+                if (jcoField) jcoField.blur();
+            };
+            const closeJcoModalForManual = () => { if (jcoModal) jcoModal.classList.remove('visible'); jcoManualFocus = true; if (jcoField) jcoField.focus(); };
+            if (jcoField) {
+                jcoField.addEventListener('click', () => { if (!jcoManualFocus && !jcoField.disabled) openJcoModal(); });
+                jcoField.addEventListener('blur', () => { jcoManualFocus = false; });
+            }
+            if (jcoInsertBtn) jcoInsertBtn.addEventListener('click', () => {
+                const r = computeJcoAddlPension(readJcoPeriods());
+                if (r.highest < 0) return;
+                jcoModal.classList.remove('visible');
+                jcoManualFocus = false;
+                jcoField.value = formatAmountLoose(r.final);
+                jcoField.dispatchEvent(new Event('input', { bubbles: true })); // runs the usual formatting and recalculation
+            });
+            if (jcoManualBtn) jcoManualBtn.addEventListener('click', closeJcoModalForManual);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && jcoModal && jcoModal.classList.contains('visible')) closeJcoModalForManual(); });
             [...payComponentInputs, document.getElementById('jco-addl-pension')].filter(Boolean).forEach(input => input.addEventListener('input', () => { updateGrossPensionFromFormula(); calculateAndDisplayAll(); }));
             [...payComponentInputs, document.getElementById('jco-addl-pension'), document.getElementById('medical-board')].filter(Boolean).forEach(input => input.addEventListener('input', () => {
                 if (!isSupabaseEnabled) return;
