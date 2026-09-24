@@ -372,15 +372,35 @@
                     </div>
                 </div>
                 
+                <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Disability Pension Details</h3>
+                <div class="mt-4 space-y-2">
+                    <div class="output-group">
+                        <span class="label">Pay for Disability Pension</span>
+                        <span class="value text-gray-800" id="disability-pay-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Gross Disability Pension</span>
+                        <span class="value text-gray-800" id="disability-gross-pension-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Commuted Disability Pension</span>
+                        <span class="value text-gray-800" id="disability-commuted-pension-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Disability Purchase Value</span>
+                        <span class="value text-gray-800" id="disability-purchase-value-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Disability Commute</span>
+                        <span class="value text-gray-800" id="disability-commute-output">0</span>
+                    </div>
+                </div>
+
                 <h3 class="font-semibold text-lg mt-6 mb-2 text-gray-600 border-b pb-2">Pension Details</h3>
                  <div class="mt-4 space-y-2">
                     <div class="output-group">
                         <span class="label">Gross Pension</span>
-                        <span class="value text-gray-800" id="gross-pension-output">0</span>
-                    </div>
-                    <div class="output-group">
-                        <span class="label">Net Pension (Before Increases)</span>
-                        <span class="value text-gray-800" id="net-pension-pre-increase-output">0</span>
+                        <span class="value text-gray-800" id="gross-pension-normal-output">0</span>
                     </div>
                     <div class="output-group">
                         <span class="label">Commuted Pension</span>
@@ -389,6 +409,18 @@
                      <div class="output-group">
                         <span class="label">Commutation Amount</span>
                         <span class="value text-gray-800" id="commutation-amount-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Commutation Amount <span style="font-size: 0.75em;">(Normal+Disability)</span></span>
+                        <span class="value text-gray-800" id="commutation-amount-total-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Total Gross Pension <span style="font-size: 0.75em;">(Normal+Disability)</span></span>
+                        <span class="value text-gray-800" id="gross-pension-output">0</span>
+                    </div>
+                    <div class="output-group">
+                        <span class="label">Net Pension (Before Increases)</span>
+                        <span class="value text-gray-800" id="net-pension-pre-increase-output">0</span>
                     </div>
                  </div>
 
@@ -685,7 +717,6 @@
             pensionCurrent: 0, 
             pensionRestored: 0, 
             restorationDate: 'N/A',
-            restorationDateRaw: null, // Date object of the restoration date (used by the Restoration Application letter)
             tkAllowance: 0 
         };
 
@@ -735,6 +766,7 @@
             const hasComponentValue = componentInputs.some(input => input.value.trim() !== '');
             const totalPay = componentInputs.reduce((sum, input) => sum + (parseAmount(input.value) || 0), 0);
             totalPayInput.value = hasComponentValue ? formatAmount(roundToTwoDecimals(totalPay)) : '';
+            updateDisabilityPay();
         };
 
         // Gross Pension link: while "Remove check for manual entry" is ticked, the main Gross Pension is locked and
@@ -771,6 +803,10 @@
         };
 
         // Gross Pension (calculated): =ROUND(((Total Pay + 105) * 7/10 * MIN(QS/25, 1)) + JCO Addl Pension, 2)
+        let currentNormalCommutedPension = 0; // Commuted Pension (normal), set by calculateAndDisplayAllCore
+        let currentNormalCommutationAmount = 0; // Commutation Amount (normal), set by calculateAndDisplayAllCore
+        let currentNormalGrossPension = 0; // Gross Pension (Normal), set by calculateAndDisplayAllCore
+        let currentAgeNextBirthday = null; // age on next birthday after SOS, set by calculateAndDisplayAllCore
         let currentQualifyingService = null; // rounded QS in years, set by calculateAndDisplayAllCore (null until DOE & SOS are filled)
         const updateGrossPensionFromFormula = () => {
             const chk = document.getElementById('gross-pension-confirmed');
@@ -826,6 +862,64 @@
                 if (!enabled && el.value !== '') { el.value = ''; changed = true; }
             });
             if (changed) { calculateTotalPay(); updateGrossPensionFromFormula(); }
+            updateDisabilityPay();
+        };
+
+        // Disability figures (Medical Board, Total Pay, SOS date, age at SOS) - all 0 unless Medical Board is A, B or C
+        //  Pay for Disability Pension  : =IF(MB="A",TotalPay*1/3,IF(MB="B",TotalPay*1/6,IF(MB="C",TotalPay*1/8,0)))
+        //  Gross Disability Pension    : =ROUND(D3+(D3*33%),2)   (D3 = Pay for Disability Pension)
+        //  Commuted Disability Pension : =ROUND(IF(SOS>30-Jun-2005,Gross*35%,IF(SOS>30-Nov-2001,Gross*40%,Gross*50%)),2)   (Gross = Gross Disability Pension)
+        //  Disability Purchase Value   : =VLOOKUP(AgeNextBirthday+2, commutation table, IF(SOS<1-Jul-1986,4,IF(SOS<1-Dec-2001,3,2)))  (approximate match)
+        //  Disability Commute          : =ROUND(Commuted Disability Pension*12*Disability Purchase Value,2)
+        const getDisabilityFigures = () => {
+            const grade = document.getElementById('medical-board')?.value || 'No';
+            if (grade === 'No') return { active: false, pay: 0, grossDisability: 0, commutedValue: null, purchaseValue: null, commuteValue: null };
+            const sosDate = parseDate(document.getElementById('sos')?.value);
+            const factor = { A: 1 / 3, B: 1 / 6, C: 1 / 8 }[grade] || 0;
+            const totalPay = parseAmount(document.getElementById('total-pay')?.value);
+            const pay = (isNaN(totalPay) ? 0 : totalPay) * factor;
+            const grossDisabilityFull = roundToTwoDecimals(pay + (pay * 0.33));
+            // Family pension: 75% of the pension (same as the normal Gross Pension)
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const grossDisability = isFamilyPension ? roundToTwoDecimals(grossDisabilityFull * 0.75) : grossDisabilityFull;
+
+            const rate = !sosDate ? null : (sosDate > parseDate('2005-06-30') ? 0.35 : (sosDate > parseDate('2001-11-30') ? 0.40 : 0.50));
+            const commutedValue = rate === null ? null : roundToTwoDecimals(grossDisability * rate);
+            // The commuted lump sum was paid on the full pension, so (like the normal Commutation Amount) it is not reduced to 75%
+            const commutedFullValue = rate === null ? null : roundToTwoDecimals(grossDisabilityFull * rate);
+
+            let purchaseValue = null;
+            if (sosDate && currentAgeNextBirthday !== null) {
+                const column = sosDate < parseDate('1986-07-01') ? 'val_1966' : (sosDate < parseDate('2001-12-01') ? 'val_1986' : 'val_2001');
+                const target = currentAgeNextBirthday + 2;
+                let row = null;
+                pensionData.forEach(r => { if (r.age <= target && (!row || r.age > row.age)) row = r; }); // largest age not above the lookup age
+                if (row) purchaseValue = row[column];
+            }
+            const commuteValue = (commutedFullValue === null || purchaseValue === null) ? null : roundToTwoDecimals(commutedFullValue * 12 * purchaseValue);
+            return { active: true, pay, grossDisability, commutedValue, purchaseValue, commuteValue };
+        };
+
+        // Shows the disability results plus the "(Normal+Disability)" totals:
+        //  Total Gross Pension (Normal+Disability)  : Gross Pension + Gross Disability Pension
+        //  Net Pension (Before Increases)           : Total Gross Pension - (Commuted Pension + Commuted Disability Pension)
+        //  Commutation Amount (Normal+Disability)   : Commutation Amount + Disability Commute
+        const updateDisabilityPay = () => {
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+            const f = getDisabilityFigures();
+            const totalGross = currentNormalGrossPension + f.grossDisability;
+            set('gross-pension-output', formatCurrency(totalGross));
+            set('net-pension-pre-increase-output', formatCurrency(roundToTwoDecimals(totalGross - (currentNormalCommutedPension + (f.commutedValue || 0)))));
+            set('commutation-amount-total-output', formatCurrency(currentNormalCommutationAmount + (f.commuteValue || 0)));
+            if (!f.active) { // nothing is calculated unless a Medical Board grade (A, B or C) is selected
+                ['disability-pay-output', 'disability-gross-pension-output', 'disability-commuted-pension-output', 'disability-purchase-value-output', 'disability-commute-output'].forEach(id => set(id, '0'));
+                return;
+            }
+            set('disability-pay-output', formatCurrency(f.pay));
+            set('disability-gross-pension-output', formatCurrency(f.grossDisability));
+            set('disability-commuted-pension-output', f.commutedValue === null ? '0' : formatCurrency(f.commutedValue));
+            set('disability-purchase-value-output', f.purchaseValue === null ? '0' : f.purchaseValue.toFixed(4));
+            set('disability-commute-output', f.commuteValue === null ? '0' : formatCurrency(f.commuteValue));
         };
         
         const roundToNearestWhole = (num) => {
@@ -1128,34 +1222,158 @@
             });
         };
 
-        // "Restoration Application" button: restoration of the commuted portion of pension on the restoration date
+        // "Restoration Application" button (layout copied from the supplied file)
         const generateRestorationApplicationPdf = () => {
-            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                if (window.openMessageModal) {
+                    window.openMessageModal("Error", "PDF library is not loaded. Please refresh and try again.");
+                }
+                return;
+            }
+
             const rank = document.getElementById('rank')?.value || '____________';
             const name = (document.getElementById('name')?.value || '____________').toUpperCase();
+            const familyPensionerName = (document.getElementById('family-pensioner-name')?.value || '____________').toUpperCase();
             const pakNo = document.getElementById('pak-no')?.value || '____________';
             const arm = document.getElementById('arms')?.value || 'PAF';
-            const serviceNumberText = (arm === 'Army' || arm === 'Navy') ? `Service No ${pakNo}` : `Pak/${pakNo}`;
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const familyRelation = document.getElementById('family-relation')?.value || 'Widow';
+            const signatureName = isFamilyPension ? familyPensionerName : name;
+            const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
+            const isArmyOrNavy = arm === 'Army' || arm === 'Navy';
+            const serviceNumberLabel = isArmyOrNavy ? 'Service No  ' : 'Pak No  ';
+            const signatureServiceNumber = isArmyOrNavy ? `Service No ${pakNo}` : `Pak/${pakNo}`;
+            const dobDate = parseDate(document.getElementById('dob')?.value);
             const sosDate = parseDate(document.getElementById('sos')?.value);
-            const sosText = sosDate ? formatDateLong(sosDate) : '____________';
-            const restorationText = currentCalculatedValues.restorationDateRaw ? formatDateLong(currentCalculatedValues.restorationDateRaw) : '____________';
+            const restorationDateText = currentCalculatedValues.restorationDate || 'N/A';
+            const dobText = dobDate ? formatDateDisplay(dobDate) : '____________';
+            const sosText = sosDate ? formatDateDisplay(sosDate) : '____________';
+            const todayText = formatDateLong(new Date());
 
-            const para2 = isFamilyPension
-                ? `I respectfully submit that ${rank} ${name} (${serviceNumberText}), whose family pension I am drawing, retired from service on ${sosText}. A portion of the pension was commuted at the time of retirement and, in accordance with the rules, the commuted portion of pension is to be restored on ${restorationText}.`
-                : `I respectfully submit that I retired from service on ${sosText}. A portion of my pension was commuted at the time of retirement and, in accordance with the rules, the commuted portion of my pension is to be restored on ${restorationText}.`;
-            const para3 = isFamilyPension
-                ? `It is, therefore, requested that the commuted portion of the pension may please be restored w.e.f. ${restorationText} and a copy of Corrigendum PPO be dispatched to my home address.`
-                : `It is, therefore, requested that the commuted portion of my pension may please be restored w.e.f. ${restorationText} and a copy of Corrigendum PPO be dispatched to my home address.`;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const left = 22;
+            let y = 24;
 
-            generateApplicationPdf({
-                headingText: isFamilyPension ? 'RESTORATION OF COMMUTED FAMILY PENSION' : 'RESTORATION OF COMMUTED PENSION',
-                paragraphs: [
-                    'With reference to the subject cited above and under the rules on commutation of pension in vogue.',
-                    para2,
-                    para3
-                ],
-                filePrefix: 'Restoration-Application'
-            });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.text(`${servicePrefix}/${pakNo}/PF`, left, y);
+            doc.text(todayText, pageWidth - 22, y, { align: 'right' });
+
+            y += 16;
+            if (isArmyOrNavy) {
+                doc.text('____________________', left, y);
+                y += 7;
+                doc.text('____________________', left, y);
+            } else {
+                doc.text('Dte of Pension', left, y);
+                y += 7;
+                doc.text('Air Headquarters, Peshawar', left, y);
+            }
+
+            y += 14;
+            doc.text('Sir,', left, y);
+
+            const sectionGap = 16;
+            y += sectionGap;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(15);
+            const headingText = isFamilyPension
+                ? 'RESTORATION OF COMMUTED PORTION OF FAMILY PENSION'
+                : 'RESTORATION OF COMMUTED PORTION OF PENSION';
+            doc.text(headingText, pageWidth / 2, y, { align: 'center' });
+
+            y += sectionGap;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.text('1.', left, y);
+            doc.text('Appended below please find data for restoration of commuted portion of pension:-', left + 12, y);
+
+            y += 14;
+            doc.text('Rank  ', left + 12, y);
+            doc.text('Name  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${rank}`, left + 12 + doc.getTextWidth('Rank  '), y);
+            doc.text(`${name}`, left + 86 + doc.getTextWidth('Name  '), y);
+            doc.setFont('helvetica', 'normal');
+            y += 10;
+            doc.text(serviceNumberLabel, left + 12, y);
+            doc.text('Date of Birth  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${pakNo}`, left + 12 + doc.getTextWidth(serviceNumberLabel), y);
+            doc.text(`${dobText}`, left + 86 + doc.getTextWidth('Date of Birth  '), y);
+            doc.setFont('helvetica', 'normal');
+            y += 10;
+            doc.text('Date of SOS  ', left + 12, y);
+            doc.text('Date of Restoration  ', left + 86, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${sosText}`, left + 12 + doc.getTextWidth('Date of SOS  '), y);
+            doc.text(`${restorationDateText}`, left + 86 + doc.getTextWidth('Date of Restoration  '), y);
+            doc.setFont('helvetica', 'normal');
+            y += 10;
+            const addressX = left + 12;
+            const addressText = 'Address';
+            const lineEndX = pageWidth - 20;
+            const addressWidth = doc.getTextWidth(addressText);
+            const spaceWidth = doc.getTextWidth(' ');
+            doc.text(addressText, addressX, y);
+            const line1StartX = addressX + addressWidth + (spaceWidth * 3);
+            const line2StartX = addressX + addressWidth;
+            const addressLine1Text = buildUnderlineForWidth(doc, lineEndX - line1StartX);
+            const addressLine2Text = buildUnderlineForWidth(doc, lineEndX - line2StartX);
+            doc.text(addressLine1Text, line1StartX, y);
+            y += 10;
+            doc.text(addressLine2Text, line2StartX, y);
+
+            y += 18;
+            doc.text('2.', left, y);
+            const para2 = 'It is, therefore, requested that commuted portion of pension may please be restored. Kindly dispatch copy of Corrigendum PPO to the address given above.';
+            const para2FirstLineX = left + 12;
+            const para2RemainingLineX = left;
+            const para2Width = pageWidth - para2FirstLineX - 20;
+            const para2RemainingWidth = pageWidth - para2RemainingLineX - 20;
+            const para2LineHeight = 7;
+            const para2LineCount = drawJustifiedParagraphWithHangingIndent(
+                doc,
+                para2,
+                para2FirstLineX,
+                para2RemainingLineX,
+                y,
+                para2Width,
+                para2RemainingWidth,
+                para2LineHeight
+            );
+            y += para2LineCount * para2LineHeight + 7;
+
+            doc.text('3.', left, y);
+            doc.text('Submitted, please.', left + 12, y);
+
+            y += 34;
+            const signatureX = pageWidth - 78;
+            doc.text('Yours sincerely', signatureX, y);
+            y += 30;
+            doc.setFont('helvetica', 'bold');
+            doc.text(`(${signatureName})`, signatureX, y);
+            y += 7;
+            doc.setFont('helvetica', 'normal');
+            if (isFamilyPension) {
+                doc.text(`${familyRelation} of`, signatureX, y);
+                y += 7;
+            }
+            doc.text(`${rank} (Rtd)`, signatureX, y);
+            y += 7;
+            doc.text(signatureServiceNumber, signatureX, y);
+            y += 7;
+            const cellLabel = 'Cell # ';
+            const cellLabelWidth = doc.getTextWidth(cellLabel);
+            const cellLineStartX = signatureX + cellLabelWidth;
+            const cellLineEndX = pageWidth - 20;
+            const cellUnderline = buildUnderlineForWidth(doc, cellLineEndX - cellLineStartX);
+            doc.text(cellLabel, signatureX, y);
+            doc.text(cellUnderline, cellLineStartX, y);
+
+            doc.save(`Restoration-Application-${pakNo || 'pensioner'}.pdf`);
         };
         
         const formatVisitCount = (num) => {
@@ -1181,11 +1399,16 @@
         function calculateAndDisplayAll() {
             const result = calculateAndDisplayAllCore();
             try { updateGrossPensionFromFormula(); } catch (e) { console.error("Gross Pension formula error:", e); }
+            try { updateDisabilityPay(); } catch (e) { console.error("Disability pay error:", e); }
             return result;
         }
 
         function calculateAndDisplayAllCore() {
             currentQualifyingService = null;
+            currentAgeNextBirthday = null;
+            currentNormalGrossPension = 0;
+            currentNormalCommutationAmount = 0;
+            currentNormalCommutedPension = 0;
             try {
                 const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension');
                 // NEW: Family DOB input
@@ -1253,7 +1476,7 @@
                 let roundedQS = 0; let ageNextBirthday = 0; let commutationFactor = 0; let restorationDate = null;
                 if (doeDate && sosDate) {
                     const serviceInMillis = sosDate - doeDate; const serviceInYearsDecimal = serviceInMillis / (1000 * 60 * 60 * 24 * 365.25); roundedQS = Math.round(serviceInYearsDecimal); currentQualifyingService = roundedQS;
-                    if (dobDate) { const sosPlusOneDay = new Date(sosDate); sosPlusOneDay.setUTCDate(sosPlusOneDay.getUTCDate() + 1); const ageAtSOSInYears = (sosPlusOneDay - dobDate) / (1000 * 60 * 60 * 24 * 365.25); ageNextBirthday = Math.ceil(ageAtSOSInYears); }
+                    if (dobDate) { const sosPlusOneDay = new Date(sosDate); sosPlusOneDay.setUTCDate(sosPlusOneDay.getUTCDate() + 1); const ageAtSOSInYears = (sosPlusOneDay - dobDate) / (1000 * 60 * 60 * 24 * 365.25); ageNextBirthday = Math.ceil(ageAtSOSInYears); currentAgeNextBirthday = ageNextBirthday; }
                     let factorsToUse = null; const policyDate2001 = parseDate('2001-12-01'); const policyDate1986 = parseDate('1986-07-01');
                     if (sosDate >= policyDate2001) factorsToUse = factors_2001_12_01; else if (sosDate >= policyDate1986) factorsToUse = factors_1986_07_01; else factorsToUse = factors_1966_07_01;
                     commutationFactor = factorsToUse[ageNextBirthday] || 0; const roundedCommutationFactor = Math.round(commutationFactor); 
@@ -1266,6 +1489,8 @@
                 // Initialize default values
                 let grossPension = 0;
                 let basePension = 0;
+                let totalGrossPension = 0; // Gross Pension (Normal) + Gross Disability Pension
+                let netPensionPreIncrease = 0; // Total Gross Pension - (Commuted Pension + Commuted Disability Pension)
                 let commutedPension = 0;
                 let commutationAmount = 0;
                 let finalPensionCurrent = 0;
@@ -1285,23 +1510,26 @@
                      
                      commutedPension = roundToTwoDecimals(grossPension * commutedPensionPercentage);
                      basePension = roundToTwoDecimals(grossPension - commutedPension);
+                     const disabilityFigures = getDisabilityFigures();
+                     totalGrossPension = roundToTwoDecimals(grossPension + disabilityFigures.grossDisability);
+                     netPensionPreIncrease = roundToTwoDecimals(totalGrossPension - (commutedPension + (disabilityFigures.commutedValue || 0)));
                      commutationAmount = roundToTwoDecimals(grossPensionPPO * commutedPensionPercentage * commutationFactor * 12);
 
                      // Pass familyDobDate to populateIncreaseTable
-                     netValues = populateIncreaseTable(sosDate, grossPension, basePension, dobDate, isFamilyPension, familyDobDate);
+                     netValues = populateIncreaseTable(sosDate, totalGrossPension, netPensionPreIncrease, dobDate, isFamilyPension, familyDobDate);
                     
                     // UPDATED LOGIC START
                     // Pension (Current) formula be the maximum amount in current NET
-                    let maxNetCurrent = basePension;
+                    let maxNetCurrent = netPensionPreIncrease;
                     if (netValues.current && netValues.current.length > 0) {
-                        maxNetCurrent = Math.max(basePension, ...netValues.current);
+                        maxNetCurrent = Math.max(netPensionPreIncrease, ...netValues.current);
                     }
                     finalPensionCurrent = Math.round(maxNetCurrent); 
 
                     // Pension (After Restoration) be maximum amount in Restoration NET
-                    let maxNetRestored = grossPension;
+                    let maxNetRestored = totalGrossPension;
                     if (netValues.restored && netValues.restored.length > 0) {
-                        maxNetRestored = Math.max(grossPension, ...netValues.restored);
+                        maxNetRestored = Math.max(totalGrossPension, ...netValues.restored);
                     }
                     finalPensionRestored = Math.round(maxNetRestored);
                     // UPDATED LOGIC END
@@ -1315,7 +1543,7 @@
                     if (tbody) tbody.innerHTML = '';
                 }
 
-                document.getElementById('qs-output').textContent = `${roundedQS} Years`; document.getElementById('age-at-sos-output').textContent = `${ageNextBirthday} Years`; document.getElementById('commutation-factor-output').textContent = commutationFactor.toFixed(4); document.getElementById('gross-pension-output').textContent = formatCurrency(grossPension); document.getElementById('net-pension-pre-increase-output').textContent = formatCurrency(basePension); document.getElementById('commuted-pension-output').textContent = formatCurrency(commutedPension); document.getElementById('commutation-amount-output').textContent = formatCurrency(commutationAmount);
+                document.getElementById('qs-output').textContent = `${roundedQS} Years`; document.getElementById('age-at-sos-output').textContent = `${ageNextBirthday} Years`; document.getElementById('commutation-factor-output').textContent = commutationFactor.toFixed(4); document.getElementById('gross-pension-normal-output').textContent = formatCurrency(grossPension); currentNormalGrossPension = Number(grossPension) || 0; document.getElementById('net-pension-pre-increase-output').textContent = formatCurrency(basePension); document.getElementById('commuted-pension-output').textContent = formatCurrency(commutedPension); currentNormalCommutedPension = Number(commutedPension) || 0; document.getElementById('commutation-amount-output').textContent = formatCurrency(commutationAmount); currentNormalCommutationAmount = Number(commutationAmount) || 0;
                 document.getElementById('pension-pm-current-output').textContent = formatCurrency(finalPensionCurrent, true); document.getElementById('pension-pm-restored-output').textContent = formatCurrency(finalPensionRestored, true); document.getElementById('tk-allowance-current-output').textContent = formatCurrency(tkAllowance);
                 document.getElementById('total-payable-current-output').textContent = formatCurrency(totalPayableCurrent, true); document.getElementById('total-payable-restored-output').textContent = formatCurrency(totalPayableRestored, true);
                 
@@ -1334,7 +1562,7 @@
                 const pensionLabel = isFamilyPension ? "Monthly Pension - Family" : "Monthly Pension - Self"; document.getElementById('print-pension-label').textContent = pensionLabel;
                 
                 // Print Preview updates - use 0/- if grossPensionPPO <= 0
-                const pensionValue = isRestored ? grossPension : basePension; 
+                const pensionValue = isRestored ? totalGrossPension : netPensionPreIncrease; 
                 document.getElementById('print-pension-amount').textContent = (grossPensionPPO > 0) ? formatCurrency(pensionValue, false, true) : '-';
                 
                 const increaseLabel = isFamilyPension ? "Pension Increase - Family" : "Pension Increase - Self"; document.getElementById('print-increase-label').textContent = increaseLabel;
@@ -1491,7 +1719,7 @@
                 periodRemainingOutputSpan.className = 'value w-full md:w-1/3 text-left md:text-right whitespace-nowrap text-gray-800';
                 if (restorationDate) { const today3 = parseDate(getTodayDateString()); if (restorationDate <= today3) { periodRemainingDisplay = 'Restored'; periodRemainingOutputSpan.classList.remove('text-gray-800'); periodRemainingOutputSpan.classList.add('text-green-600', 'font-bold'); } else { periodRemainingDisplay = formatYearsMonthsDisplay(today3, restorationDate); } }
                 periodRemainingOutputSpan.textContent = periodRemainingDisplay;
-                currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.restorationDateRaw = restorationDate; currentCalculatedValues.tkAllowance = tkAllowance;
+                currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.tkAllowance = tkAllowance;
             } catch (error) { console.error("Error in calculateAndDisplayAll:", error); }
         }
 
@@ -2278,11 +2506,11 @@
                 if (grossPensionConfirmedCheckbox && payComponentsCard) {
                     payComponentsCard.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked);
                 }
-                if (grossPensionConfirmedCheckbox) { const mbGrp = document.getElementById('grp-medical-board'); if (mbGrp) mbGrp.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked); if (!grossPensionConfirmedCheckbox.checked) { const mb = document.getElementById('medical-board'); if (mb) mb.value = 'No'; } }
+                if (grossPensionConfirmedCheckbox) { const mbGrp = document.getElementById('grp-medical-board'); if (mbGrp) mbGrp.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked); if (!grossPensionConfirmedCheckbox.checked) { const mb = document.getElementById('medical-board'); if (mb) mb.value = 'No'; } } updateDisabilityPay();
                 syncGrossPensionLink();
             };
             if (grossPensionConfirmedCheckbox && payComponentsCard) {
-                grossPensionConfirmedCheckbox.addEventListener('change', () => { updatePayComponentsVisibility(); checkInputEnabling(); updateGrossPensionFromFormula(); });
+                grossPensionConfirmedCheckbox.addEventListener('change', () => { updatePayComponentsVisibility(); checkInputEnabling(); updateGrossPensionFromFormula(); calculateAndDisplayAll(); });
                 updatePayComponentsVisibility();
             }
 
@@ -2380,7 +2608,9 @@
             payComponentInputs.forEach(input => input.addEventListener('input', calculateTotalPay));
             const grossPensionComponentInput = document.getElementById('gross-pension-component');
             if (grossPensionComponentInput) grossPensionComponentInput.addEventListener('input', () => syncGrossPensionLink('component'));
-            [...payComponentInputs, document.getElementById('jco-addl-pension')].filter(Boolean).forEach(input => input.addEventListener('input', updateGrossPensionFromFormula));
+            const medicalBoardSelect = document.getElementById('medical-board');
+            if (medicalBoardSelect) medicalBoardSelect.addEventListener('input', calculateAndDisplayAll);
+            [...payComponentInputs, document.getElementById('jco-addl-pension')].filter(Boolean).forEach(input => input.addEventListener('input', () => { updateGrossPensionFromFormula(); calculateAndDisplayAll(); }));
             [...payComponentInputs, document.getElementById('jco-addl-pension'), document.getElementById('medical-board')].filter(Boolean).forEach(input => input.addEventListener('input', () => {
                 if (!isSupabaseEnabled) return;
                 clearTimeout(logDebounceTimer);
