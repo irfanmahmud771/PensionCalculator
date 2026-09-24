@@ -23,8 +23,8 @@
         .input-group input[readonly] { background-color: #F7FAFC; cursor: not-allowed; font-weight: 600; }
         .input-group input:disabled, .input-group select:disabled, .pension-stepper button:disabled { background-color: #F7FAFC; color: #A0AEC0; cursor: not-allowed; opacity: 0.7; }
         .pension-input-wrapper { display: flex; align-items: center; }
-        .pension-input-wrapper input { flex-grow: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; min-width: 50px; }
-        .pension-stepper { display: flex; flex-direction: column; flex-shrink: 0; }
+        .pension-input-wrapper input { flex-grow: 1; min-width: 50px; }
+        .pension-stepper { display: none; } /* + / - buttons removed (kept in the DOM so the script's element lookups still work) */
         .pension-stepper button { width: 2.5rem; height: 1.25rem; display: flex; align-items: center; justify-content: center; background-color: #F1F5F9; border: 1px solid #CBD5E0; color: #4A5568; font-weight: 600; line-height: 1; transition: background-color 0.15s ease-in-out; user-select: none; }
         .pension-stepper button:hover:not(:disabled) { background-color: #E2E8F0; }
         .pension-stepper button:first-child { border-top-right-radius: 0.375rem; border-bottom-width: 0.5px; border-left-width: 0; }
@@ -235,7 +235,7 @@
                         <div class="input-group">
                             <div class="flex items-start justify-between mb-2">
                                 <label for="gross-pension-ppo" class="mb-0">Gross Pension <span class="text-xs font-normal text-gray-500">(Remove check for manual entry)</span></label>
-                                <input id="gross-pension-confirmed" type="checkbox" checked aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                                <input id="gross-pension-confirmed" type="checkbox" checked disabled aria-label="Gross Pension PPO confirmation" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div class="pension-input-wrapper">
                                 <input type="text" id="gross-pension-ppo" class="calc-input" disabled>
@@ -245,6 +245,15 @@
                                 </div>
                             </div>
                         </div>
+                            <div class="input-group" id="grp-medical-board">
+                                <label for="medical-board">Medical Board</label>
+                                <select id="medical-board" disabled>
+                                    <option value="No" selected>No</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                </select>
+                            </div>
                          <div class="input-group">
                             <label for="tk-award">TK Award</label>
                             <select id="tk-award" class="calc-input" disabled>
@@ -291,29 +300,34 @@
                     </div>
 
                     <div id="pay-components-card" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                            <h3 class="font-semibold text-lg text-gray-600 border-b pb-2 md:col-span-2">Pay Components (for Gross Pension)</h3>
                             <div class="input-group">
                                 <label for="basic-pay">Basic Pay</label>
-                                <input type="number" id="basic-pay" min="0" step="0.01" inputmode="decimal">
+                                <input type="text" id="basic-pay" inputmode="decimal" autocomplete="off" disabled>
                             </div>
                             <div class="input-group">
                                 <label for="disturbance-pay">Disturbance Pay</label>
-                                <input type="number" id="disturbance-pay" min="0" step="0.01" inputmode="decimal">
+                                <input type="text" id="disturbance-pay" inputmode="decimal" autocomplete="off" disabled>
                             </div>
                             <div class="input-group">
                                 <label for="gcb-pay">GCB Pay/Other Pay</label>
-                                <input type="number" id="gcb-pay" min="0" step="0.01" inputmode="decimal">
+                                <input type="text" id="gcb-pay" inputmode="decimal" autocomplete="off" disabled>
                             </div>
                             <div class="input-group">
                                 <label for="usual-increment">Usual Increment</label>
-                                <input type="number" id="usual-increment" min="0" step="0.01" inputmode="decimal">
+                                <input type="text" id="usual-increment" inputmode="decimal" autocomplete="off" disabled>
                             </div>
                             <div class="input-group">
                                 <label for="total-pay">Total Pay</label>
-                                <input type="number" id="total-pay" min="0" step="0.01" inputmode="decimal" readonly aria-readonly="true">
+                                <input type="text" id="total-pay" inputmode="decimal" readonly aria-readonly="true">
                             </div>
                             <div class="input-group">
-                                <label for="gross-pension-component">Gross Pension</label>
-                                <input type="number" id="gross-pension-component" min="0" step="0.01" inputmode="decimal">
+                                <label for="jco-addl-pension">JCO Addl Pension</label>
+                                <input type="text" id="jco-addl-pension" inputmode="decimal" autocomplete="off" disabled>
+                            </div>
+                            <div class="input-group">
+                                <label for="gross-pension-component">Gross Pension <span class="text-xs font-normal text-gray-500">(calculated)</span></label>
+                                <input type="text" id="gross-pension-component" inputmode="decimal" autocomplete="off" title="ROUND(((Total Pay + 105) x 7/10 x MIN(QS/25, 1)) + JCO Addl Pension, 2)">
                             </div>
                     </div>
                 </form>
@@ -671,6 +685,7 @@
             pensionCurrent: 0, 
             pensionRestored: 0, 
             restorationDate: 'N/A',
+            restorationDateRaw: null, // Date object of the restoration date (used by the Restoration Application letter)
             tkAllowance: 0 
         };
 
@@ -690,6 +705,26 @@
             return Math.round((num + epsilon) * 100) / 100;
         };
 
+        // Thousand-separator helpers for the pay fields
+        const parseAmount = (v) => parseFloat(String(v ?? '').replace(/,/g, ''));
+        const formatAmount = (n) => (typeof n === 'number' && !isNaN(n)) ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+        const formatAmountLoose = (n) => (typeof n === 'number' && !isNaN(n)) ? n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : '';
+        const setAmountField = (id, raw) => { const el = document.getElementById(id); if (!el) return; const n = parseAmount(raw); el.value = isNaN(n) ? '' : formatAmountLoose(n); };
+        // Formats what the person is typing (digits and one decimal point, max 2 decimals) and keeps the cursor in place
+        const formatAmountTyping = (input) => {
+            const raw = input.value;
+            const caret = input.selectionStart == null ? raw.length : input.selectionStart;
+            const before = raw.slice(0, caret).replace(/[^0-9.]/g, '').length;
+            const parts = raw.replace(/[^0-9.]/g, '').split('.');
+            const intPart = parts[0].replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            const formatted = parts.length > 1 ? intPart + '.' + parts.slice(1).join('').substring(0, 2) : intPart;
+            if (formatted === raw) return;
+            input.value = formatted;
+            let count = 0, pos = 0;
+            while (pos < formatted.length && count < before) { if (/[0-9.]/.test(formatted[pos])) count++; pos++; }
+            try { input.setSelectionRange(pos, pos); } catch (e) { /* not focusable */ }
+        };
+
         const calculateTotalPay = () => {
             const componentInputs = ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment']
                 .map(id => document.getElementById(id));
@@ -698,8 +733,99 @@
             if (!totalPayInput || componentInputs.some(input => !input)) return;
 
             const hasComponentValue = componentInputs.some(input => input.value.trim() !== '');
-            const totalPay = componentInputs.reduce((sum, input) => sum + (parseFloat(input.value) || 0), 0);
-            totalPayInput.value = hasComponentValue ? roundToTwoDecimals(totalPay).toFixed(2) : '';
+            const totalPay = componentInputs.reduce((sum, input) => sum + (parseAmount(input.value) || 0), 0);
+            totalPayInput.value = hasComponentValue ? formatAmount(roundToTwoDecimals(totalPay)) : '';
+        };
+
+        // Gross Pension link: while "Remove check for manual entry" is ticked, the main Gross Pension is locked and
+        // always equals the calculated Gross Pension of the pay section. Untick it (only possible once SOS is entered)
+        // to type the main field by hand. The calculated field is never filled from the main field.
+        let grossPensionLinkBusy = false;
+        const syncGrossPensionLink = (source) => {
+            const comp = document.getElementById('gross-pension-component');
+            const ppo = document.getElementById('gross-pension-ppo');
+            const chk = document.getElementById('gross-pension-confirmed');
+            if (!comp || !ppo) return;
+            const linked = !chk || chk.checked;
+            const applyState = () => {
+                ppo.readOnly = linked;
+                ppo.setAttribute('aria-readonly', linked ? 'true' : 'false');
+                if (linked) ['increase-pension', 'decrease-pension'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = true; });
+            };
+            if (grossPensionLinkBusy) return;
+            grossPensionLinkBusy = true;
+            try {
+                if (linked) {
+                    const num = (v) => parseFloat(String(v || '').replace(/,/g, ''));
+                    const c = num(comp.value), p = num(ppo.value);
+                    const mayPush = source === 'component' || !isNaN(c); // an empty calculated value only clears the main field when it was just recalculated
+                    if (mayPush && !ppo.disabled && (isNaN(c) !== isNaN(p) || Math.abs((c || 0) - (p || 0)) >= 0.01)) {
+                        ppo.value = isNaN(c) ? '' : String(roundToTwoDecimals(Math.max(0, c)));
+                        ppo.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            } finally {
+                grossPensionLinkBusy = false;
+                applyState();
+            }
+        };
+
+        // Gross Pension (calculated): =ROUND(((Total Pay + 105) * 7/10 * MIN(QS/25, 1)) + JCO Addl Pension, 2)
+        let currentQualifyingService = null; // rounded QS in years, set by calculateAndDisplayAllCore (null until DOE & SOS are filled)
+        const updateGrossPensionFromFormula = () => {
+            const chk = document.getElementById('gross-pension-confirmed');
+            const comp = document.getElementById('gross-pension-component');
+            const totalEl = document.getElementById('total-pay');
+            if (!comp || !totalEl) return;
+            comp.readOnly = true; // always calculated, never typed
+            comp.setAttribute('aria-readonly', 'true');
+            const totalPay = parseAmount(totalEl.value);
+            if (isNaN(totalPay) || currentQualifyingService === null) {
+                comp.value = '';
+            } else {
+                const jco = parseAmount(document.getElementById('jco-addl-pension')?.value) || 0;
+                const qsFactor = Math.min(currentQualifyingService / 25, 1);
+                comp.value = formatAmount(roundToTwoDecimals(((totalPay + 105) * 7 / 10 * qsFactor) + jco));
+            }
+            if (!chk || chk.checked) syncGrossPensionLink('component');
+        };
+
+        // Pay fields are open for entry once SOS is entered; JCO Addl Pension only for ranks above Chf Tech (PAF), Hav (Army) or PO (Navy)
+        const JCO_ADDL_PENSION_ABOVE_RANK = { PAF: 'Chf Tech', Army: 'Hav', Navy: 'PO' };
+        const isJcoAddlPensionRank = () => {
+            const arm = document.getElementById('arms')?.value;
+            const rankSel = document.getElementById('rank');
+            const threshold = JCO_ADDL_PENSION_ABOVE_RANK[arm];
+            if (!rankSel || !threshold || !rankSel.value) return false;
+            const order = Array.from(rankSel.options).map(o => o.value).filter(Boolean); // rank list is ordered low -> high
+            const idx = order.indexOf(rankSel.value), thr = order.indexOf(threshold);
+            return idx >= 0 && thr >= 0 && idx > thr;
+        };
+        const applyPayFieldEnabling = () => {
+            const sos = document.getElementById('sos');
+            const sosFilled = !!(sos && sos.value);
+            const jcoRank = isJcoAddlPensionRank();
+            // SOS after 31 Dec 2024: Basic Pay becomes "24 Months Avg Pay Emoluments"; Disturbance Pay and GCB/Other Pay are not entered
+            const newPayRule = sosFilled && sos.value > '2024-12-31';
+            const basicPayLabel = document.querySelector('label[for="basic-pay"]');
+            if (basicPayLabel) basicPayLabel.textContent = newPayRule ? '24 Months Avg Pay Emoluments' : 'Basic Pay';
+            const medicalBoard = document.getElementById('medical-board'); // opens together with TK Award and Family Pension once SOS is entered
+            if (medicalBoard) { medicalBoard.disabled = !sosFilled; if (!sosFilled) medicalBoard.value = 'No'; }
+            const confirmChk = document.getElementById('gross-pension-confirmed');
+            if (confirmChk) {
+                if (!sosFilled && !confirmChk.checked) { confirmChk.checked = true; confirmChk.dispatchEvent(new Event('change')); }
+                confirmChk.disabled = !sosFilled;
+            }
+            let changed = false;
+            ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment', 'jco-addl-pension'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const enabled = sosFilled && (id !== 'jco-addl-pension' || jcoRank) && !(newPayRule && (id === 'disturbance-pay' || id === 'gcb-pay'));
+                el.disabled = !enabled;
+                if (id === 'disturbance-pay' || id === 'gcb-pay') { const grp = el.closest('.input-group'); if (grp) grp.style.display = newPayRule ? 'none' : ''; }
+                if (!enabled && el.value !== '') { el.value = ''; changed = true; }
+            });
+            if (changed) { calculateTotalPay(); updateGrossPensionFromFormula(); }
         };
         
         const roundToNearestWhole = (num) => {
@@ -871,7 +997,8 @@
             return lines.length;
         };
 
-        const generateRestorationApplicationPdf = () => {
+        // Shared layout for the application letters: reference line, address, subject heading, numbered paragraphs, signature block
+        const generateApplicationPdf = ({ headingText, paragraphs, filePrefix }) => {
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
                 if (window.openMessageModal) {
@@ -891,13 +1018,6 @@
             const servicePrefix = arm === 'Army' ? 'PA' : arm === 'Navy' ? 'PN' : 'PAF';
             const isArmyOrNavy = arm === 'Army' || arm === 'Navy';
             const signatureServiceNumber = isArmyOrNavy ? `Service No ${pakNo}` : `Pak/${pakNo}`;
-            const dobDate = parseDate(document.getElementById('dob')?.value);
-            const familyDobDate = parseDate(document.getElementById('family-dob')?.value);
-            const dateFor85Years = (isFamilyPension && familyDobDate) ? familyDobDate : dobDate;
-            const eightyFifthBirthday = dateFor85Years
-                ? new Date(Date.UTC(dateFor85Years.getUTCFullYear() + 85, dateFor85Years.getUTCMonth(), dateFor85Years.getUTCDate()))
-                : null;
-            const eightyFifthBirthdayText = eightyFifthBirthday ? formatDateLong(eightyFifthBirthday) : '____________';
             const todayText = formatDateLong(new Date());
 
             const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -928,62 +1048,33 @@
             y += sectionGap;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(15);
-            const headingText = isFamilyPension
-                ? 'GRANT OF 25% INCREASE IN FAMILY PENSION ON 85 YEARS AGE'
-                : 'GRANT OF 25% INCREASE IN PENSION ON 85 YEARS AGE';
             doc.text(headingText, pageWidth / 2, y, { align: 'center' });
 
             y += sectionGap;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(12);
-            doc.text('1.', left, y);
-            const para1 = 'With reference to the subject cited above and under the provisions of\nOffice Memorandum issued by the Finance Division (Regulation Wing) vide\nNo. F.4 (1)-Reg-6/2016-870 dated 01 July, 2016 & No. F.4 (1)-Reg-6/2016-1082 dated\n26 September 2016.';
             const paragraphFirstLineX = left + 12;
             const paragraphRemainingLineX = left;
             const paragraphWidth = pageWidth - paragraphFirstLineX - 20;
             const paragraphRemainingWidth = pageWidth - paragraphRemainingLineX - 20;
             const paragraphLineHeight = 7;
-            const para1LineCount = drawJustifiedParagraphWithHangingIndent(
-                doc,
-                para1,
-                paragraphFirstLineX,
-                paragraphRemainingLineX,
-                y,
-                paragraphWidth,
-                paragraphRemainingWidth,
-                paragraphLineHeight
-            );
-            y += para1LineCount * paragraphLineHeight + 7;
 
-            doc.text('2.', left, y);
-            const para2 = `I respectfully submit that I have attained the age of 85 years on ${eightyFifthBirthdayText}.\nIn accordance with the above mentioned Office Memorandum, now I am entitled to a 25% increase in pension instead of 10% granted in July 2016.`;
-            const para2LineCount = drawJustifiedParagraphWithHangingIndent(
-                doc,
-                para2,
-                paragraphFirstLineX,
-                paragraphRemainingLineX,
-                y,
-                paragraphWidth,
-                paragraphRemainingWidth,
-                paragraphLineHeight
-            );
-            y += para2LineCount * paragraphLineHeight + 7;
+            paragraphs.forEach((text, index) => {
+                doc.text(`${index + 1}.`, left, y);
+                const lineCount = drawJustifiedParagraphWithHangingIndent(
+                    doc,
+                    text,
+                    paragraphFirstLineX,
+                    paragraphRemainingLineX,
+                    y,
+                    paragraphWidth,
+                    paragraphRemainingWidth,
+                    paragraphLineHeight
+                );
+                y += lineCount * paragraphLineHeight + 7;
+            });
 
-            doc.text('3.', left, y);
-            const para3 = 'It is, therefore, requested that the referred increase in my pension may please be granted and dispatch a copy of Corrigendum PPO to my home address.';
-            const para3LineCount = drawJustifiedParagraphWithHangingIndent(
-                doc,
-                para3,
-                paragraphFirstLineX,
-                paragraphRemainingLineX,
-                y,
-                paragraphWidth,
-                paragraphRemainingWidth,
-                paragraphLineHeight
-            );
-            y += para3LineCount * paragraphLineHeight + 7;
-
-            doc.text('4.', left, y);
+            doc.text(`${paragraphs.length + 1}.`, left, y);
             doc.text('Submitted, please.', left + 12, y);
 
             y += 34;
@@ -1010,11 +1101,61 @@
             doc.text(cellLabel, signatureX, y);
             doc.text(cellUnderline, cellLineStartX, y);
 
-            doc.save(`85-Years-Application-${pakNo || 'pensioner'}.pdf`);
+            doc.save(`${filePrefix}-${pakNo || 'pensioner'}.pdf`);
         };
 
+        // "85 Years Application" button
         const generate85YearsApplicationPdf = () => {
-            generateRestorationApplicationPdf();
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const dobDate = parseDate(document.getElementById('dob')?.value);
+            const familyDobDate = parseDate(document.getElementById('family-dob')?.value);
+            const dateFor85Years = (isFamilyPension && familyDobDate) ? familyDobDate : dobDate;
+            const eightyFifthBirthday = dateFor85Years
+                ? new Date(Date.UTC(dateFor85Years.getUTCFullYear() + 85, dateFor85Years.getUTCMonth(), dateFor85Years.getUTCDate()))
+                : null;
+            const eightyFifthBirthdayText = eightyFifthBirthday ? formatDateLong(eightyFifthBirthday) : '____________';
+
+            generateApplicationPdf({
+                headingText: isFamilyPension
+                    ? 'GRANT OF 25% INCREASE IN FAMILY PENSION ON 85 YEARS AGE'
+                    : 'GRANT OF 25% INCREASE IN PENSION ON 85 YEARS AGE',
+                paragraphs: [
+                    'With reference to the subject cited above and under the provisions of\nOffice Memorandum issued by the Finance Division (Regulation Wing) vide\nNo. F.4 (1)-Reg-6/2016-870 dated 01 July, 2016 & No. F.4 (1)-Reg-6/2016-1082 dated\n26 September 2016.',
+                    `I respectfully submit that I have attained the age of 85 years on ${eightyFifthBirthdayText}.\nIn accordance with the above mentioned Office Memorandum, now I am entitled to a 25% increase in pension instead of 10% granted in July 2016.`,
+                    'It is, therefore, requested that the referred increase in my pension may please be granted and dispatch a copy of Corrigendum PPO to my home address.'
+                ],
+                filePrefix: '85-Years-Application'
+            });
+        };
+
+        // "Restoration Application" button: restoration of the commuted portion of pension on the restoration date
+        const generateRestorationApplicationPdf = () => {
+            const isFamilyPension = document.getElementById('family-pension')?.value === 'Yes';
+            const rank = document.getElementById('rank')?.value || '____________';
+            const name = (document.getElementById('name')?.value || '____________').toUpperCase();
+            const pakNo = document.getElementById('pak-no')?.value || '____________';
+            const arm = document.getElementById('arms')?.value || 'PAF';
+            const serviceNumberText = (arm === 'Army' || arm === 'Navy') ? `Service No ${pakNo}` : `Pak/${pakNo}`;
+            const sosDate = parseDate(document.getElementById('sos')?.value);
+            const sosText = sosDate ? formatDateLong(sosDate) : '____________';
+            const restorationText = currentCalculatedValues.restorationDateRaw ? formatDateLong(currentCalculatedValues.restorationDateRaw) : '____________';
+
+            const para2 = isFamilyPension
+                ? `I respectfully submit that ${rank} ${name} (${serviceNumberText}), whose family pension I am drawing, retired from service on ${sosText}. A portion of the pension was commuted at the time of retirement and, in accordance with the rules, the commuted portion of pension is to be restored on ${restorationText}.`
+                : `I respectfully submit that I retired from service on ${sosText}. A portion of my pension was commuted at the time of retirement and, in accordance with the rules, the commuted portion of my pension is to be restored on ${restorationText}.`;
+            const para3 = isFamilyPension
+                ? `It is, therefore, requested that the commuted portion of the pension may please be restored w.e.f. ${restorationText} and a copy of Corrigendum PPO be dispatched to my home address.`
+                : `It is, therefore, requested that the commuted portion of my pension may please be restored w.e.f. ${restorationText} and a copy of Corrigendum PPO be dispatched to my home address.`;
+
+            generateApplicationPdf({
+                headingText: isFamilyPension ? 'RESTORATION OF COMMUTED FAMILY PENSION' : 'RESTORATION OF COMMUTED PENSION',
+                paragraphs: [
+                    'With reference to the subject cited above and under the rules on commutation of pension in vogue.',
+                    para2,
+                    para3
+                ],
+                filePrefix: 'Restoration-Application'
+            });
         };
         
         const formatVisitCount = (num) => {
@@ -1035,7 +1176,16 @@
 
         // --- DEFINE FUNCTIONS ---
         // Moved calculateAndDisplayAll to higher scope for clarity
+        // Runs the main calculation, then refreshes the formula-driven Gross Pension (after the calculation has finished,
+        // because updating the locked main field re-triggers this function).
         function calculateAndDisplayAll() {
+            const result = calculateAndDisplayAllCore();
+            try { updateGrossPensionFromFormula(); } catch (e) { console.error("Gross Pension formula error:", e); }
+            return result;
+        }
+
+        function calculateAndDisplayAllCore() {
+            currentQualifyingService = null;
             try {
                 const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension');
                 // NEW: Family DOB input
@@ -1102,7 +1252,7 @@
 
                 let roundedQS = 0; let ageNextBirthday = 0; let commutationFactor = 0; let restorationDate = null;
                 if (doeDate && sosDate) {
-                    const serviceInMillis = sosDate - doeDate; const serviceInYearsDecimal = serviceInMillis / (1000 * 60 * 60 * 24 * 365.25); roundedQS = Math.round(serviceInYearsDecimal);
+                    const serviceInMillis = sosDate - doeDate; const serviceInYearsDecimal = serviceInMillis / (1000 * 60 * 60 * 24 * 365.25); roundedQS = Math.round(serviceInYearsDecimal); currentQualifyingService = roundedQS;
                     if (dobDate) { const sosPlusOneDay = new Date(sosDate); sosPlusOneDay.setUTCDate(sosPlusOneDay.getUTCDate() + 1); const ageAtSOSInYears = (sosPlusOneDay - dobDate) / (1000 * 60 * 60 * 24 * 365.25); ageNextBirthday = Math.ceil(ageAtSOSInYears); }
                     let factorsToUse = null; const policyDate2001 = parseDate('2001-12-01'); const policyDate1986 = parseDate('1986-07-01');
                     if (sosDate >= policyDate2001) factorsToUse = factors_2001_12_01; else if (sosDate >= policyDate1986) factorsToUse = factors_1986_07_01; else factorsToUse = factors_1966_07_01;
@@ -1341,7 +1491,7 @@
                 periodRemainingOutputSpan.className = 'value w-full md:w-1/3 text-left md:text-right whitespace-nowrap text-gray-800';
                 if (restorationDate) { const today3 = parseDate(getTodayDateString()); if (restorationDate <= today3) { periodRemainingDisplay = 'Restored'; periodRemainingOutputSpan.classList.remove('text-gray-800'); periodRemainingOutputSpan.classList.add('text-green-600', 'font-bold'); } else { periodRemainingDisplay = formatYearsMonthsDisplay(today3, restorationDate); } }
                 periodRemainingOutputSpan.textContent = periodRemainingDisplay;
-                currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.tkAllowance = tkAllowance;
+                currentCalculatedValues.pensionCurrent = finalPensionCurrent; currentCalculatedValues.pensionRestored = finalPensionRestored; currentCalculatedValues.restorationDate = restorationDateFormatted; currentCalculatedValues.restorationDateRaw = restorationDate; currentCalculatedValues.tkAllowance = tkAllowance;
             } catch (error) { console.error("Error in calculateAndDisplayAll:", error); }
         }
 
@@ -1386,6 +1536,7 @@
                     <strong>Arms:</strong> ${armsDisplay}, <strong>Rank:</strong> ${rankDisplay}, <strong>Name:</strong> ${entry.name || '-'}, <strong>Pak No:</strong> ${entry.pak_no || '-'}<br>
                     <strong>DOB:</strong> ${log_dob_display}, <strong>DOE:</strong> ${log_doe_display}, <strong>SOS:</strong> ${log_sos_display}<br>
                     <strong>Pension:</strong> ${log_pension_display}, <strong>TK:</strong> ${entry.tk}, ${familyLogLine}<br>
+                    ${(entry.basic_pay != null || entry.disturbance_pay != null || entry.gcb_pay != null || entry.usual_increment != null || entry.jco_addl_pension != null || (entry.medical_board && entry.medical_board !== 'No')) ? `<strong>Basic Pay:</strong> ${entry.basic_pay ?? '-'}, <strong>Disturbance Pay:</strong> ${entry.disturbance_pay ?? '-'}, <strong>GCB/Other Pay:</strong> ${entry.gcb_pay ?? '-'}, <strong>Usual Increment:</strong> ${entry.usual_increment ?? '-'}, <strong>JCO Addl Pension:</strong> ${entry.jco_addl_pension ?? '-'}, <strong>Medical Board:</strong> ${entry.medical_board || 'No'}<br>` : ''}
                     <strong class="text-blue-600">Current: Rs. ${Math.round(entry.pension_current || 0).toLocaleString('en-IN')}, Restored: Rs. ${Math.round(entry.pension_restored || 0).toLocaleString('en-IN')}, TK: Rs. ${(entry.tk_allowance || 0).toLocaleString('en-IN')}, Date: ${entry.restoration_date || 'N/A'}</strong><br>
                     <button class="load-log-btn text-xs bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-2 rounded-lg transition-colors mt-2" 
                         data-rank="${entry.rank || ''}" 
@@ -1405,6 +1556,12 @@
                         data-family-cnic="${entry.family_pensioner_cnic || ''}"
                         data-family-relation="${entry.relation_with_pensioner || 'Widow'}"
                         data-family-dob="${entry.family_dob_raw || ''}" 
+                        data-basic-pay="${entry.basic_pay ?? ''}"
+                        data-disturbance-pay="${entry.disturbance_pay ?? ''}"
+                        data-gcb-pay="${entry.gcb_pay ?? ''}"
+                        data-usual-increment="${entry.usual_increment ?? ''}"
+                        data-jco-addl-pension="${entry.jco_addl_pension ?? ''}"
+                        data-medical-board="${entry.medical_board || 'No'}"
                     >Load this Data</button>
                     <button class="delete-log-btn text-xs bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-2 rounded-lg transition-colors mt-2 ml-2" data-id="${entry.id}">Delete this Log</button>
                 </div>`;
@@ -1437,6 +1594,8 @@
 
             const now = new Date(); const day = String(now.getDate()).padStart(2, '0'); const month = String(now.getMonth() + 1).padStart(2, '0'); const year = now.getFullYear(); const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
+            const manualGrossPension = !!document.getElementById('gross-pension-confirmed') && !document.getElementById('gross-pension-confirmed').checked; // check removed = Gross Pension entered by hand
+            const payVal = (id) => { if (manualGrossPension) return null; const v = parseAmount(document.getElementById(id)?.value); return isNaN(v) ? null : v; }; // pay figures are only logged for a calculated Gross Pension
             const logEntry = { 
                 displaytimestamp: `${day}-${month}-${year} ${time}`, 
                 triggersource: triggerSource, 
@@ -1457,6 +1616,12 @@
                 family_pensioner_cnic: log_family_cnic, // Enabled
                 relation_with_pensioner: log_family_relation, // Enabled
                 family_dob_raw: log_family_dob_raw, // Enabled New
+                basic_pay: payVal('basic-pay'),
+                disturbance_pay: payVal('disturbance-pay'),
+                gcb_pay: payVal('gcb-pay'),
+                usual_increment: payVal('usual-increment'),
+                jco_addl_pension: payVal('jco-addl-pension'),
+                medical_board: manualGrossPension ? 'No' : (document.getElementById('medical-board')?.value || 'No'),
                 pension_current: currentCalculatedValues.pensionCurrent, 
                 pension_restored: currentCalculatedValues.pensionRestored, 
                 restoration_date: currentCalculatedValues.restorationDate, 
@@ -1482,7 +1647,12 @@
                     if (deleteError) { console.warn("Error checking/deleting duplicate log:", deleteError); }
                 }
 
-                const { error: insertError } = await supabaseClient.from('logs').insert(logEntry);
+                let { error: insertError } = await supabaseClient.from('logs').insert(logEntry);
+                if (insertError && /basic_pay|disturbance_pay|gcb_pay|usual_increment|jco_addl_pension|medical_board/.test(insertError.message || '')) {
+                    console.warn("Pay columns missing in 'logs' table - run the SQL to add them. Saving without pay fields.");
+                    const { basic_pay, disturbance_pay, gcb_pay, usual_increment, jco_addl_pension, medical_board, ...legacyEntry } = logEntry;
+                    ({ error: insertError } = await supabaseClient.from('logs').insert(legacyEntry));
+                }
                 if (insertError) { throw insertError; }
                 console.log("Log entry saved (or refreshed):", logEntry);
             } catch (e) { console.error("Error adding document: ", e); }
@@ -1578,11 +1748,22 @@
             document.getElementById('family-pensioner-cnic').value = data.familyCnic || '';
             document.getElementById('family-relation').value = data.familyRelation || 'Widow';
             document.getElementById('family-dob').value = data.familyDob || ''; // New field
+            setAmountField('basic-pay', data.basicPay);
+            setAmountField('disturbance-pay', data.disturbancePay);
+            setAmountField('gcb-pay', data.gcbPay);
+            setAmountField('usual-increment', data.usualIncrement);
+            setAmountField('jco-addl-pension', data.jcoAddlPension);
+            { const mb = document.getElementById('medical-board'); if (mb) mb.value = ['No', 'A', 'B', 'C'].includes(data.medicalBoard) ? data.medicalBoard : 'No'; }
+            calculateTotalPay();
             document.getElementById('account-no').dispatchEvent(new Event('input'));
             document.getElementById('cnic').dispatchEvent(new Event('input'));
             document.getElementById('family-pensioner-cnic').dispatchEvent(new Event('input'));
 
+            // Entries with pay figures use the calculated Gross Pension; entries without them keep their stored (manually entered) pension
+            calculateTotalPay();
+            { const chk = document.getElementById('gross-pension-confirmed'); if (chk) chk.checked = document.getElementById('total-pay').value !== ''; }
             checkInputEnabling(); calculateAndDisplayAll();
+            { const chk = document.getElementById('gross-pension-confirmed'); if (chk) chk.dispatchEvent(new Event('change')); }
             
             // Explicitly enable DOB since data is loaded (view/edit mode)
             document.getElementById('dob').disabled = false;
@@ -1809,12 +1990,12 @@
         function checkInputEnabling() {
             const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); const tkAwardInput = document.getElementById('tk-award'); const familyPensionInput = document.getElementById('family-pension'); const increasePensionBtn = document.getElementById('increase-pension'); const decreasePensionBtn = document.getElementById('decrease-pension'); const printBtn = document.getElementById('print-btn'); const printRestorationBtn = document.getElementById('print-restoration-btn'); const print85YearsBtn = document.getElementById('print-85-years-btn');
             const dobFilled = dobInput.value !== ''; const doeFilled = doeInput.value !== ''; const sosFilled = sosInput.value !== ''; const grossPensionFilled = grossPensionInput.value !== '' && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0;
-            doeInput.disabled = !dobFilled; sosInput.disabled = !(dobFilled && doeFilled); grossPensionInput.disabled = !(dobFilled && doeFilled && sosFilled); increasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); decreasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); tkAwardInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled); familyPensionInput.disabled = !(dobFilled && doeFilled && sosFilled && grossPensionFilled);
+            doeInput.disabled = !dobFilled; sosInput.disabled = !(dobFilled && doeFilled); grossPensionInput.disabled = !(dobFilled && doeFilled && sosFilled); increasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); decreasePensionBtn.disabled = !(dobFilled && doeFilled && sosFilled); tkAwardInput.disabled = !sosFilled; familyPensionInput.disabled = !sosFilled;
             const hasCalculationData = dobFilled && doeFilled && sosFilled && grossPensionFilled;
             if (printBtn) printBtn.disabled = !hasCalculationData;
             if (printRestorationBtn) printRestorationBtn.disabled = !hasCalculationData;
             if (print85YearsBtn) print85YearsBtn.disabled = !hasCalculationData;
-            if (doeInput.disabled) { doeInput.value = ''; document.getElementById('doe-display').textContent = ''; } if (sosInput.disabled) { sosInput.value = ''; document.getElementById('sos-display').textContent = ''; } if (grossPensionInput.disabled) grossPensionInput.value = ''; if (tkAwardInput.disabled) tkAwardInput.value = 'No'; if (familyPensionInput.disabled) familyPensionInput.value = 'No';
+            if (doeInput.disabled) { doeInput.value = ''; document.getElementById('doe-display').textContent = ''; } if (sosInput.disabled) { sosInput.value = ''; document.getElementById('sos-display').textContent = ''; } if (grossPensionInput.disabled) grossPensionInput.value = ''; syncGrossPensionLink(); applyPayFieldEnabling(); if (tkAwardInput.disabled) tkAwardInput.value = 'No'; if (familyPensionInput.disabled) familyPensionInput.value = 'No';
             
             // New Logic for Family Pensioner Name visibility in Input Form
             const familyPensionVal = familyPensionInput.value;
@@ -1889,6 +2070,7 @@
             if (ranks.includes(currentRank)) {
                 rankSelect.value = currentRank;
             }
+            applyPayFieldEnabling();
         }
 
         async function initVisitCounter() { 
@@ -2066,6 +2248,7 @@
             if (grossPensionInput) {
                 const warnGrossPension = () => {
                     if (grossPensionWarningShown) return; // Exit if already shown
+                    if (grossPensionInput.readOnly) return; // Locked (linked) - nothing to warn about
 
                     grossPensionInput.blur(); // Disable entry (remove focus)
                     
@@ -2095,9 +2278,11 @@
                 if (grossPensionConfirmedCheckbox && payComponentsCard) {
                     payComponentsCard.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked);
                 }
+                if (grossPensionConfirmedCheckbox) { const mbGrp = document.getElementById('grp-medical-board'); if (mbGrp) mbGrp.classList.toggle('hidden', !grossPensionConfirmedCheckbox.checked); if (!grossPensionConfirmedCheckbox.checked) { const mb = document.getElementById('medical-board'); if (mb) mb.value = 'No'; } }
+                syncGrossPensionLink();
             };
             if (grossPensionConfirmedCheckbox && payComponentsCard) {
-                grossPensionConfirmedCheckbox.addEventListener('change', updatePayComponentsVisibility);
+                grossPensionConfirmedCheckbox.addEventListener('change', () => { updatePayComponentsVisibility(); checkInputEnabling(); updateGrossPensionFromFormula(); });
                 updatePayComponentsVisibility();
             }
 
@@ -2191,7 +2376,19 @@
             const payComponentInputs = ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
+            [...payComponentInputs, document.getElementById('jco-addl-pension')].filter(Boolean).forEach(input => input.addEventListener('input', () => formatAmountTyping(input)));
             payComponentInputs.forEach(input => input.addEventListener('input', calculateTotalPay));
+            const grossPensionComponentInput = document.getElementById('gross-pension-component');
+            if (grossPensionComponentInput) grossPensionComponentInput.addEventListener('input', () => syncGrossPensionLink('component'));
+            [...payComponentInputs, document.getElementById('jco-addl-pension')].filter(Boolean).forEach(input => input.addEventListener('input', updateGrossPensionFromFormula));
+            [...payComponentInputs, document.getElementById('jco-addl-pension'), document.getElementById('medical-board')].filter(Boolean).forEach(input => input.addEventListener('input', () => {
+                if (!isSupabaseEnabled) return;
+                clearTimeout(logDebounceTimer);
+                const g = document.getElementById('gross-pension-ppo');
+                if (document.getElementById('dob').value && document.getElementById('doe').value && document.getElementById('sos').value && g.value && parseFloat(g.value.replace(/,/g, '')) > 0) {
+                    logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY);
+                }
+            }));
             calculateTotalPay();
 
             allInputs.forEach(input => { if(input.id !== 'gross-pension-ppo') { input.addEventListener('input', () => { try { calculateAndDisplayAll(); } catch (e) { console.error("Error during calculation on input:", e); } if (isSupabaseEnabled) { clearTimeout(logDebounceTimer); const dobInput = document.getElementById('dob'); const doeInput = document.getElementById('doe'); const sosInput = document.getElementById('sos'); const grossPensionInput = document.getElementById('gross-pension-ppo'); if (dobInput.value && doeInput.value && sosInput.value && grossPensionInput.value && parseFloat(grossPensionInput.value.replace(/,/g, '')) > 0) { logDebounceTimer = setTimeout(() => { logCalculation('Input Change (Debounced)'); }, LOG_DEBOUNCE_DELAY); } } checkInputEnabling(); }); } });
@@ -2311,7 +2508,13 @@
                                 familyName: pendingLoadData.family_pensioner_name,
                                 familyCnic: pendingLoadData.family_pensioner_cnic,
                                 familyRelation: pendingLoadData.relation_with_pensioner,
-                                familyDob: pendingLoadData.family_dob_raw || ''
+                                familyDob: pendingLoadData.family_dob_raw || '',
+                                basicPay: pendingLoadData.basic_pay ?? '',
+                                disturbancePay: pendingLoadData.disturbance_pay ?? '',
+                                gcbPay: pendingLoadData.gcb_pay ?? '',
+                                usualIncrement: pendingLoadData.usual_increment ?? '',
+                                jcoAddlPension: pendingLoadData.jco_addl_pension ?? '',
+                                medicalBoard: pendingLoadData.medical_board || 'No'
                             }
                         };
                         
