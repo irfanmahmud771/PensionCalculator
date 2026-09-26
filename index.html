@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-build-version" content="2026-09-25T16:35:57Z">
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,6 +16,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        #update-banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 200; background: #1f2937; color: #fff; padding: 10px 16px; display: none; align-items: center; justify-content: center; gap: 14px; font-size: 0.85rem; flex-wrap: wrap; text-align: center; }
+        #update-banner.visible { display: flex; }
+        #update-banner button { background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; }
+        #update-banner button:hover { background: #2563eb; }
         body { font-family: 'Inter', sans-serif; }
         .input-group { margin-bottom: 1rem; }
         .input-group label { display: block; margin-bottom: 0.25rem; color: #4A5568; font-size: 0.875rem; font-weight: 500; }
@@ -538,6 +543,8 @@
         </div>
     </div>
 
+    <div id="update-banner"><span>A newer version of this page is available.</span><button id="update-banner-btn" type="button">Reload</button></div>
+
     <!-- JCO ADDL PENSION MODAL (opens when the JCO Addl Pension field is clicked) -->
     <div id="jco-modal" class="modal-overlay">
         <div class="modal-content" style="max-width: 560px; max-height: 90vh; overflow-y: auto;">
@@ -717,6 +724,30 @@
     </div>
 
     <script type="module">
+
+        // Update check: this static page can be cached by the browser or a CDN, so it periodically re-fetches
+        // itself (bypassing the cache) and compares the build version below to what is actually on the server.
+        // If they differ, a newer file has been deployed and a banner offers to reload.
+        const APP_BUILD_VERSION = '2026-09-25T16:35:57Z';
+        (() => {
+            const extractVersion = (html) => { const m = html.match(/<meta\s+name="app-build-version"\s+content="([^"]*)"/i); return m ? m[1] : null; };
+            const showUpdateBanner = () => { const b = document.getElementById('update-banner'); if (b) b.classList.add('visible'); };
+            const checkForUpdate = async () => {
+                try {
+                    const res = await fetch(location.pathname + '?_v=' + Date.now(), { cache: 'no-store' });
+                    if (!res.ok) return;
+                    const serverVersion = extractVersion(await res.text());
+                    if (serverVersion && serverVersion !== APP_BUILD_VERSION) showUpdateBanner();
+                } catch (e) { /* offline or blocked - try again next time */ }
+            };
+            document.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('update-banner-btn');
+                if (btn) btn.addEventListener('click', () => location.reload());
+                setInterval(checkForUpdate, 5 * 60 * 1000); // recheck every 5 minutes
+                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+                setTimeout(checkForUpdate, 3000);
+            });
+        })();
         // --- MODIFIED IMPORT BLOCK ---
         const createClient = window.supabase?.createClient;
         
@@ -786,6 +817,7 @@
             const hasComponentValue = componentInputs.some(input => input.value.trim() !== '');
             const totalPay = componentInputs.reduce((sum, input) => sum + (parseAmount(input.value) || 0), 0);
             totalPayInput.value = hasComponentValue ? formatAmount(roundToTwoDecimals(totalPay)) : '';
+            applyPayFieldEnabling();
             updateDisabilityPay();
         };
 
@@ -836,7 +868,9 @@
             comp.readOnly = true; // always calculated, never typed
             comp.setAttribute('aria-readonly', 'true');
             const totalPay = parseAmount(totalEl.value);
-            if (isNaN(totalPay) || currentQualifyingService === null) {
+            const basicPay = parseAmount(document.getElementById('basic-pay')?.value);
+            const basicPayEntered = !isNaN(basicPay) && basicPay > 0;
+            if (!basicPayEntered || isNaN(totalPay) || currentQualifyingService === null) {
                 comp.value = '';
             } else {
                 const jco = parseAmount(document.getElementById('jco-addl-pension')?.value) || 0;
@@ -847,7 +881,7 @@
         };
 
         // Pay fields are open for entry once SOS is entered; JCO Addl Pension only for ranks above Chf Tech (PAF), Hav (Army) or PO (Navy)
-        const JCO_ADDL_PENSION_ABOVE_RANK = { PAF: 'Chf Tech', Army: 'Hav', Navy: 'PO' };
+        const JCO_RANKS_BY_ARM = { Army: ['Nb Sub', 'Sub', 'Sub Maj'], Navy: ['CPO', 'FCPO', 'MCPO'], PAF: ['Asstt Wrt Off', 'Wrt Off', 'Chf Wrt Off'] }; // lowest -> highest JCO rank; only these ranks draw JCO Addl Pension
 
         // JCO Addl Pension (Rs. per month) from the dates served in the three JCO ranks (lowest -> highest)
         //  Days       : End - Start + 1 (inclusive)
@@ -855,8 +889,9 @@
         //  Amount     : IF(Years>=3, Max, Years * PerYear)                                                                      (Rule 82a)
         //  Final      : MIN(sum of amounts, maximum of the highest rank held)                                                   (Rule 82d)
         const JCO_TIERS = [{ perYear: 10, max: 30 }, { perYear: 13, max: 40 }, { perYear: 16, max: 50 }];
-        const computeJcoAddlPension = (periods) => {
-            const rows = periods.map(p => {
+        const computeJcoAddlPension = (periods, visibleCount = periods.length) => {
+            const rows = periods.map((p, i) => {
+                if (i >= visibleCount) return { days: 0, invalid: false, notApplicable: true };
                 if (!p.start || !p.end) return { days: 0, invalid: false };
                 if (p.end < p.start) return { days: 0, invalid: true };
                 return { days: Math.round((p.end - p.start) / 86400000) + 1, invalid: false };
@@ -870,25 +905,26 @@
                 rows[i].amount = rows[i].years >= 3 ? JCO_TIERS[i].max : rows[i].years * JCO_TIERS[i].perYear;
                 carry = total % 365;
             }
-            const sum = rows.reduce((a, r) => a + r.amount, 0);
+            const sum = rows.reduce((a, r) => a + (r.notApplicable ? 0 : r.amount), 0);
             let highest = -1;
-            rows.forEach((r, i) => { if (r.days > 0) highest = i; });
+            rows.forEach((r, i) => { if (!r.notApplicable && r.days > 0) highest = i; });
             const cap = highest >= 0 ? JCO_TIERS[highest].max : 0;
             return { rows, sum, cap, highest, final: Math.min(sum, cap) };
         };
         const isJcoAddlPensionRank = () => {
             const arm = document.getElementById('arms')?.value;
             const rankSel = document.getElementById('rank');
-            const threshold = JCO_ADDL_PENSION_ABOVE_RANK[arm];
+            const threshold = JCO_RANKS_BY_ARM[arm]?.[0]; // lowest JCO rank for this arm (Asstt Wrt Off / Nb Sub / CPO) - JCO Addl Pension applies at this rank or higher
             if (!rankSel || !threshold || !rankSel.value) return false;
             const order = Array.from(rankSel.options).map(o => o.value).filter(Boolean); // rank list is ordered low -> high
             const idx = order.indexOf(rankSel.value), thr = order.indexOf(threshold);
-            return idx >= 0 && thr >= 0 && idx > thr;
+            return idx >= 0 && thr >= 0 && idx >= thr;
         };
         const applyPayFieldEnabling = () => {
             const sos = document.getElementById('sos');
             const sosFilled = !!(sos && sos.value);
             const jcoRank = isJcoAddlPensionRank();
+            const totalPayPositive = (() => { const v = parseAmount(document.getElementById('total-pay')?.value); return !isNaN(v) && v > 0; })();
             // SOS after 31 Dec 2024: Basic Pay becomes "24 Months Avg Pay Emoluments"; Disturbance Pay and GCB/Other Pay are not entered
             const newPayRule = sosFilled && sos.value > '2024-12-31';
             const basicPayLabel = document.querySelector('label[for="basic-pay"]');
@@ -904,7 +940,7 @@
             ['basic-pay', 'disturbance-pay', 'gcb-pay', 'usual-increment', 'jco-addl-pension'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const enabled = sosFilled && (id !== 'jco-addl-pension' || jcoRank) && !(newPayRule && (id === 'disturbance-pay' || id === 'gcb-pay'));
+                const enabled = sosFilled && (id !== 'jco-addl-pension' || (jcoRank && totalPayPositive)) && !(newPayRule && (id === 'disturbance-pay' || id === 'gcb-pay'));
                 el.disabled = !enabled;
                 if (id === 'disturbance-pay' || id === 'gcb-pay') { const grp = el.closest('.input-group'); if (grp) grp.style.display = newPayRule ? 'none' : ''; }
                 if (!enabled && el.value !== '') { el.value = ''; changed = true; }
@@ -2662,7 +2698,6 @@
             const medicalBoardSelect = document.getElementById('medical-board');
             if (medicalBoardSelect) medicalBoardSelect.addEventListener('input', calculateAndDisplayAll);
             // ---- JCO Addl Pension popup: opens when the field is clicked; "Insert" fills the field, "Manual" lets you type it ----
-            const JCO_RANKS_BY_ARM = { Army: ['Nb Sub', 'Sub', 'Sub Maj'], Navy: ['CPO', 'FCPO', 'MCPO'], PAF: ['Asstt Wrt Off', 'Wrt Off', 'Chf Wrt Off'] }; // lowest -> highest JCO rank
             const jcoModal = document.getElementById('jco-modal');
             const jcoField = document.getElementById('jco-addl-pension');
             const jcoInsertBtn = document.getElementById('jco-insert-btn');
@@ -2670,11 +2705,18 @@
             const jcoSavedDates = {}; // dates typed so far, per arm, so the popup reopens with them
             let jcoManualFocus = false; // true after "Manual": typing in the field does not reopen the popup
             const jcoArm = () => { const a = document.getElementById('arms')?.value; return JCO_RANKS_BY_ARM[a] ? a : 'Army'; };
+            // Only the JCO ranks up to and including the rank currently held are shown - a JCO can't have served in a rank above their own
+            const jcoVisibleCount = () => {
+                const ranks = JCO_RANKS_BY_ARM[jcoArm()];
+                const idx = ranks.indexOf(document.getElementById('rank')?.value);
+                return idx >= 0 ? idx + 1 : ranks.length;
+            };
             const jcoSet = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
             const readJcoPeriods = () => [0, 1, 2].map(i => ({ start: parseDate(document.getElementById('jco-start-' + i)?.value), end: parseDate(document.getElementById('jco-end-' + i)?.value) }));
             const updateJcoResults = () => {
                 const arm = jcoArm();
                 const ranks = JCO_RANKS_BY_ARM[arm];
+                const visible = jcoVisibleCount();
                 // Start Date of each higher rank = End Date of the rank below + 1 day (always calculated, entry blocked)
                 for (let i = 1; i < 3; i++) {
                     const prevEnd = parseDate(document.getElementById('jco-end-' + (i - 1))?.value);
@@ -2684,8 +2726,11 @@
                     startEl.readOnly = true; // never typed by hand
                 }
                 jcoSavedDates[arm] = [0, 1, 2].map(i => ({ start: document.getElementById('jco-start-' + i)?.value || '', end: document.getElementById('jco-end-' + i)?.value || '' }));
-                const r = computeJcoAddlPension(readJcoPeriods());
+                const r = computeJcoAddlPension(readJcoPeriods(), visible);
                 r.rows.forEach((row, i) => {
+                    const rowEl = document.getElementById('jco-row-' + i);
+                    if (rowEl) rowEl.style.display = i < visible ? '' : 'none';
+                    if (i >= visible) return;
                     const el = document.getElementById('jco-result-' + i);
                     if (!el) return;
                     el.className = 'text-xs mt-2 ' + (row.invalid ? 'text-red-500' : 'text-gray-600');
@@ -2703,7 +2748,7 @@
                 const saved = jcoSavedDates[arm] || [];
                 jcoSet('jco-modal-arm', arm);
                 document.getElementById('jco-rows').innerHTML = JCO_RANKS_BY_ARM[arm].map((rank, i) => `
-                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50" id="jco-row-${i}">
                         <div class="flex justify-between items-baseline mb-2">
                             <span class="font-semibold text-sm">${rank}</span>
                             <span class="text-xs text-gray-500">Rs. ${JCO_TIERS[i].perYear} per year (max Rs. ${JCO_TIERS[i].max})</span>
@@ -2725,6 +2770,7 @@
             const closeJcoModalForManual = () => { if (jcoModal) jcoModal.classList.remove('visible'); jcoManualFocus = true; if (jcoField) jcoField.focus(); };
             if (jcoField) {
                 jcoField.addEventListener('click', () => { if (!jcoManualFocus && !jcoField.disabled) openJcoModal(); });
+                jcoField.addEventListener('focus', () => { if (!jcoManualFocus && !jcoField.disabled) openJcoModal(); }); // also opens when the field is reached with Tab
                 jcoField.addEventListener('blur', () => { jcoManualFocus = false; });
             }
             if (jcoInsertBtn) jcoInsertBtn.addEventListener('click', () => {
