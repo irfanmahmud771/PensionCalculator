@@ -2076,7 +2076,7 @@
 
             // Entries with pay figures use the calculated Gross Pension; entries without them keep their stored (manually entered) pension
             calculateTotalPay();
-            { const chk = document.getElementById('gross-pension-confirmed'); if (chk) chk.checked = document.getElementById('total-pay').value !== ''; }
+            { const chk = document.getElementById('gross-pension-confirmed'); const basicPayVal = parseAmount(document.getElementById('basic-pay')?.value); const basicPayPositive = !isNaN(basicPayVal) && basicPayVal > 0; if (chk) chk.checked = document.getElementById('total-pay').value !== '' && basicPayPositive; } // Basic Pay 0 -> back to manual entry, keeping the loaded Gross Pension as-is
             checkInputEnabling(); calculateAndDisplayAll();
             { const chk = document.getElementById('gross-pension-confirmed'); if (chk) chk.dispatchEvent(new Event('change')); }
             
