@@ -1838,6 +1838,7 @@
                 // Arms/Rank modification
                 const armsDisplay = entry.arms || '-';
                 const rankDisplay = entry.rank || '-';
+                const pakNoLabelDisplay = (entry.arms === 'Army' || entry.arms === 'Navy') ? 'Service No' : 'Pak No';
 
                 // Family/Relation modification
                 let familyLogLine = `<strong>Family:</strong> ${entry.family}`;
@@ -1849,7 +1850,7 @@
 
                 logHTML += `<div class="p-2 border-b border-gray-200">
                     <strong>[${entry.displaytimestamp}] ${entry.triggersource}</strong><br>
-                    <strong>Arms:</strong> ${armsDisplay}, <strong>Rank:</strong> ${rankDisplay}, <strong>Name:</strong> ${entry.name || '-'}, <strong>Pak No:</strong> ${entry.pak_no || '-'}<br>
+                    <strong>Arms:</strong> ${armsDisplay}, <strong>Rank:</strong> ${rankDisplay}, <strong>Name:</strong> ${entry.name || '-'}, <strong>${pakNoLabelDisplay}:</strong> ${entry.pak_no || '-'}<br>
                     <strong>DOB:</strong> ${log_dob_display}, <strong>DOE:</strong> ${log_doe_display}, <strong>SOS:</strong> ${log_sos_display}<br>
                     <strong>Pension:</strong> ${log_pension_display}, <strong>TK:</strong> ${entry.tk}, ${familyLogLine}<br>
                     ${(() => {
